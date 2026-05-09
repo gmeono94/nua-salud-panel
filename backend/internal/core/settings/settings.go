@@ -9,9 +9,12 @@ import (
 
 // Settings contiene las variables de entorno requeridas por la aplicación.
 type Settings struct {
-	Environment string `envconfig:"ENVIRONMENT" default:"local"`
-	Port        string `envconfig:"PORT" default:"3001"`
-	DatabaseURL string `envconfig:"DATABASE_URL" required:"true"`
+	Environment        string `envconfig:"ENVIRONMENT" default:"local"`
+	Port               string `envconfig:"PORT" default:"3001"`
+	DatabaseURL        string `envconfig:"DATABASE_URL" required:"true"`
+	DashboardDBURL     string `envconfig:"DASHBOARD_DATABASE_URL" required:"true"`
+	JWTSecret          string `envconfig:"JWT_SECRET" required:"true"`
+	JWTRefreshSecret   string `envconfig:"JWT_REFRESH_SECRET" required:"true"`
 }
 
 // AppSettings es la instancia global de configuración.

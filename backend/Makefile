@@ -1,7 +1,9 @@
 # Variables
 BINARY_NAME=nua-panel
 DB_URL=postgresql://nua:nua_secret@localhost:5432/nua_salud?sslmode=disable
-MIGRATIONS_DIR=./internal/core/db/migrations
+DASHBOARD_DB_URL=postgresql://nua:nua_secret@localhost:5432/nua_dashboard?sslmode=disable
+MIGRATIONS_DIR=./internal/core/db/migrations/operational
+DASHBOARD_MIGRATIONS_DIR=./internal/core/db/migrations/dashboard
 
 # Desarrollo local con hot reload
 .PHONY: dev
@@ -25,25 +27,43 @@ lambda-build:
 sqlc:
 	sqlc generate
 
-# Aplicar migraciones pendientes
+# --- Migraciones DB operativa ---
+
 .PHONY: migrate-up
 migrate-up:
 	migrate -path $(MIGRATIONS_DIR) -database "$(DB_URL)" up
 
-# Revertir última migración
 .PHONY: migrate-down
 migrate-down:
 	migrate -path $(MIGRATIONS_DIR) -database "$(DB_URL)" down 1
 
-# Crear nueva migración (uso: make migrate-create name=nombre_migracion)
 .PHONY: migrate-create
 migrate-create:
 	migrate create -ext sql -dir $(MIGRATIONS_DIR) -seq $(name)
 
-# Importar datos del CSV a la base de datos
+# --- Migraciones DB dashboard ---
+
+.PHONY: dashboard-migrate-up
+dashboard-migrate-up:
+	migrate -path $(DASHBOARD_MIGRATIONS_DIR) -database "$(DASHBOARD_DB_URL)" up
+
+.PHONY: dashboard-migrate-down
+dashboard-migrate-down:
+	migrate -path $(DASHBOARD_MIGRATIONS_DIR) -database "$(DASHBOARD_DB_URL)" down 1
+
+.PHONY: dashboard-migrate-create
+dashboard-migrate-create:
+	migrate create -ext sql -dir $(DASHBOARD_MIGRATIONS_DIR) -seq $(name)
+
+# Seed de usuarios del dashboard
+.PHONY: seed-users
+seed-users:
+	go run ./cmd/seed/main.go
+
+# Seed de datos operativos desde CSV
 .PHONY: seed
 seed:
-	go run ./cmd/seed/main.go
+	@echo "TODO: implementar cuando se reciba el CSV"
 
 # Ejecutar tests
 .PHONY: test
