@@ -1,0 +1,58 @@
+# Environment
+.env
+.env.*
+!.env.example
+.envs/
+
+# Go
+backend/tmp/
+backend/bin/
+*.exe
+*.out
+
+# sqlc generated (regenerable)
+# backend/internal/core/db/nuasqlc/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Dependencies
+vendor/
+
+# Testing
+coverage/
+*.cover
+*.prof
+
+# Build
+*.binary
+bootstrap
+bootstrap.zip
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+
+# Docker
+docker-compose.override.yml
+
+# Misc
+correo_dudas.md
