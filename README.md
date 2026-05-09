@@ -219,6 +219,24 @@ Un ranking es inherentemente tabular — nombre, especialidad, clínica, total d
 
 **Escalabilidad a 30 clínicas:** El volumen estimado a 30 clínicas es ~500K citas/año y ~500K pagos/año. PostgreSQL maneja esto sin esfuerzo con índices compuestos en `(clinic_id, date)` y `(doctor_id, status)`. Si las queries analíticas eventualmente compiten con escritura transaccional, se agrega una read replica dedicada al panel — cambio de infra, no de código. Y si la escala crece a 100+ clínicas con múltiples fuentes de datos, la migración a un warehouse columnar (Redshift, BigQuery) es directa porque ambos hablan dialecto PostgreSQL.
 
+#### Separación en dos bases de datos
+
+El sistema usa dos bases de datos PostgreSQL independientes:
+
+| Base de datos | Contenido | Naturaleza |
+|---------------|-----------|------------|
+| `nua_salud` | clinics, doctors, patients, appointments, payments | **Datos operativos** — en producción sería una read replica o ETL del sistema real (Vitalia/EHR). El dashboard los lee, no los posee. |
+| `nua_dashboard` | users, user_clinics, refresh_tokens | **Lógica del dashboard** — autenticación, roles, configuración propia del panel. Read-write. |
+
+**Por qué no una sola base de datos:**
+
+- **Separación de ownership:** Los datos operativos pertenecen a los sistemas transaccionales de Nua (EHR, scheduling, billing). El dashboard es un consumidor, no el dueño. Mezclar tablas de auth del dashboard con datos clínicos viola este principio.
+- **Permisos diferenciados:** La DB operativa es read-only para el panel (en producción, una read replica). La DB del dashboard necesita read-write para gestionar sesiones y usuarios. Conexiones separadas con permisos distintos.
+- **Migración independiente:** Si Nua cambia de EHR o migra su fuente de datos, la lógica del dashboard (usuarios, roles) no se ve afectada. Y viceversa — agregar funcionalidad al dashboard no requiere tocar el schema operativo.
+- **Patrón probado:** Replica el patrón de la arquitectura existente de Nua, donde servicios distintos manejan sus propias bases de datos.
+
+Cada base de datos genera su propio paquete sqlc (`operationalsqlc` y `dashboardsqlc`), manteniendo los tipos y queries completamente separados en el código.
+
 ### Backend: Go + Gin + sqlc
 
 **Elegido porque** Go en AWS Lambda tiene cold starts de ~100ms vs ~500ms-3s de Node.js. Para un panel operativo que se usa en horario laboral con picos intermitentes, Lambda con Go elimina el problema de cold starts sin pagar un servidor 24/7. El binario compilado es pequeño (~10-15MB), consume menos memoria, y Lambda cobra por ms + RAM — Go es literalmente más barato de operar.
@@ -245,6 +263,81 @@ El equipo de Nua tiene 6 devs en Node.js. Introducir Go es un riesgo de adopció
 | **SQL directo (database/sql)** | Funciona, pero requiere mapeo manual de cada columna a cada struct. sqlc automatiza eso sin perder el control del SQL. |
 
 Las queries viven en archivos `.sql` puros — son la documentación y la implementación al mismo tiempo. Si un dev necesita entender qué hace el endpoint de ocupación, lee `queries/occupancy.sql`.
+
+### Autenticación y roles (RBAC)
+
+Aunque el caso técnico no requiere autenticación, se implementa porque es una decisión que un CTO tomaría desde el inicio: un panel operativo con datos financieros y de rendimiento médico no puede ser accesible sin control de acceso, especialmente cuando la expansión a 30+ clínicas implica múltiples directoras con visibilidad limitada a sus propias sedes.
+
+#### Roles
+
+| Rol | Quién lo usa | Visibilidad |
+|-----|-------------|-------------|
+| **admin** | Founders, CTO | Todas las clínicas, todas las métricas, gestión de usuarios |
+| **strategy** | Head of Strategy (Daniella) | Todas las clínicas, todas las métricas, sin gestión de usuarios |
+| **clinic_director** | Directoras de clínica | Solo datos de sus clínicas asignadas. El filtro de clínica se restringe automáticamente |
+
+La diferencia clave entre roles es la **visibilidad de datos**: `clinic_director` solo ve las clínicas asignadas en `user_clinics`. Esto se aplica a nivel de API — cada query filtra por las clínicas autorizadas del usuario autenticado.
+
+#### Identificadores: UUID v7
+
+Se usa UUID v7 (RFC 9562) en lugar de UUID v4 o IDs autoincrementales.
+
+| Alternativa | Por qué UUID v7 gana |
+|-------------|---------------------|
+| **UUID v4** | Random puro. Fragmenta los índices B-tree de PostgreSQL porque los valores no tienen orden temporal. UUID v7 es time-ordered — los inserts van al final del índice, no al medio. |
+| **Autoincremental (SERIAL)** | Expone el volumen de datos (ID 1543 revela que hay ~1543 registros). Predecible. UUID no filtra información. |
+| **ULID** | Resuelve el mismo problema que UUID v7 (time-ordered + random), pero UUID v7 es un estándar RFC formal con soporte nativo creciente. |
+
+#### Hashing de passwords: Argon2id
+
+Se usa Argon2id en lugar de bcrypt.
+
+| Alternativa | Por qué Argon2id gana |
+|-------------|----------------------|
+| **bcrypt** | Estándar probado, pero vulnerable a ataques con GPUs/ASICs dedicados porque solo usa CPU. |
+| **scrypt** | Mejor que bcrypt (usa memoria además de CPU), pero Argon2id es su sucesor directo — ganó el Password Hashing Competition (2015) y es el estándar recomendado por OWASP. |
+
+Argon2id combina resistencia a ataques de GPU (variante "d") y side-channel (variante "i"), ofreciendo la mejor protección disponible.
+
+#### JWT: Access + Refresh tokens
+
+| Token | Vida | Propósito |
+|-------|------|-----------|
+| **Access token** | 15 minutos | Autorización en cada request. Corta vida limita el daño si se filtra. |
+| **Refresh token** | 7 días | Renovar el access token sin re-login. Se almacena en `refresh_tokens` (DB) y se puede revocar. |
+
+#### Bitácora de auditoría (audit log)
+
+Toda acción relevante en el dashboard queda registrada en una tabla `audit_logs` en la DB del dashboard:
+
+| Campo | Descripción |
+|-------|-------------|
+| `id` | UUID v7 |
+| `user_id` | Quién realizó la acción |
+| `action` | Tipo de acción (`login`, `logout`, `view_metric`, `export_data`, `create_user`, `update_user`, `delete_user`) |
+| `resource` | Recurso afectado (`appointments`, `occupancy`, `revenue`, etc.) |
+| `details` | JSONB con contexto adicional (filtros aplicados, clínicas consultadas, IP) |
+| `ip_address` | IP desde donde se realizó la acción |
+| `created_at` | Timestamp de la acción |
+
+**Por qué:** En un sistema con datos médicos y financieros, la trazabilidad no es opcional. La bitácora responde "quién vio qué, cuándo, desde dónde" — requerimiento implícito de compliance en healthtech.
+
+#### Endpoints de autenticación
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `POST` | `/api/v1/auth/login` | Autenticación con email y password |
+| `POST` | `/api/v1/auth/refresh` | Renovar access token con refresh token |
+| `POST` | `/api/v1/auth/logout` | Revocar refresh token |
+| `GET` | `/api/v1/auth/me` | Datos del usuario autenticado |
+
+#### Lo que no se implementa (fuera de scope)
+
+- Registro público de usuarios (solo admin crea cuentas)
+- Recuperación de contraseña por email
+- Verificación de email
+- Rate limiting en login
+- 2FA
 
 ### Frontend: React + TypeScript + Vite + Recharts + Tailwind CSS
 
@@ -278,6 +371,9 @@ Las visualizaciones se eligieron siguiendo un principio: **cada gráfica debe re
 ENVIRONMENT=local
 PORT=3001
 DATABASE_URL=postgresql://nua:nua_secret@localhost:5432/nua_salud?sslmode=disable
+DASHBOARD_DATABASE_URL=postgresql://nua:nua_secret@localhost:5432/nua_dashboard?sslmode=disable
+JWT_SECRET=cambiar-en-produccion-usar-al-menos-32-caracteres
+JWT_REFRESH_SECRET=cambiar-en-produccion-usar-al-menos-32-caracteres-diferente
 ```
 
 ### Frontend (`.env.example`)
@@ -317,6 +413,7 @@ Decisiones que no se implementan ahora pero están contempladas para la expansi�
 
 1. **Read replica de PostgreSQL** — Separar lectura analítica de escritura transaccional cuando el volumen lo justifique.
 2. **Cache con Redis** — Para queries costosas que no cambian en tiempo real (ingresos mensuales consolidados).
-3. **Autenticación y roles** — RBAC para que cada directora de clínica vea solo sus datos. No se implementa ahora porque el caso no lo pide, pero el diseño de API (filtro por `clinic_id`) lo habilita.
-4. **Export a CSV/PDF** — Para que Daniella siga compartiendo reportes con stakeholders que no usan el panel.
-5. **Data warehouse** — Si se agregan fuentes más allá de citas y pagos (NPS, marketing, costos operativos), migrar la capa analítica a un warehouse columnar.
+3. **Export a CSV/PDF** — Para que Daniella siga compartiendo reportes con stakeholders que no usan el panel.
+4. **Data warehouse** — Si se agregan fuentes más allá de citas y pagos (NPS, marketing, costos operativos), migrar la capa analítica a un warehouse columnar.
+5. **Rate limiting** — Protección contra fuerza bruta en el endpoint de login.
+6. **2FA** — Segundo factor de autenticación para usuarios con acceso a datos sensibles.
