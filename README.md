@@ -13,7 +13,7 @@ Eso es todo. No se necesita Go, Node.js, sqlc ni golang-migrate instalados local
 ## Instalacion
 
 ```bash
-git clone https://github.com/tu-usuario/nua-salud-panel.git
+git clone https://github.com/gmeono94/nua-salud-panel.git
 cd nua-salud-panel
 docker compose up
 ```
@@ -101,7 +101,8 @@ nua-salud-panel/
 │   │   ├── services/                    # Cliente HTTP
 │   │   ├── types/                       # Tipos de API responses
 │   │   ├── pages/
-│   │   │   └── Dashboard.tsx
+│   │   │   ├── Login.tsx
+│   │   │   └── tabs/               # Resumen, Citas, Pacientes, Ingresos, Equipo
 │   │   ├── App.tsx
 │   │   └── main.tsx
 │   ├── .env.example
@@ -648,48 +649,53 @@ Nua opera hoy con 5 clínicas, 6 desarrolladores Node.js, y un stack centrado en
 
 ### Arquitectura actual de Nua (5 clinicas)
 
+Hoy todo vive en MongoDB — expedientes, citas, pagos, doctoras, clínicas. Funciona a 5 clínicas, pero las queries relacionales (`$lookup`) ya muestran degradación. El panel operativo es el primer servicio que rompe con ese patrón usando PostgreSQL.
+
 ```mermaid
 graph TB
-    subgraph "Productos de Nua"
-        V[Vitalia — EHR<br/>Node.js + MongoDB]
+    subgraph "Productos"
+        V[Vitalia — EHR<br/>Node.js]
         PP[Portal Pacientes<br/>React]
         MA[App Móvil<br/>React Native]
-        DP[Panel Operativo<br/>Go + PostgreSQL]
+        DP[Panel Operativo<br/>Go — nuevo]
     end
 
-    subgraph "Datos"
-        MDB[(MongoDB Atlas<br/>Expedientes clínicos<br/>Documentos semi-estructurados)]
-        PG[(PostgreSQL<br/>Datos operativos + Dashboard<br/>Citas, pagos, métricas)]
+    subgraph "Datos — todo en MongoDB excepto el panel"
+        MDB[(MongoDB Atlas<br/>TODO: expedientes, citas,<br/>pagos, doctoras, clínicas)]
+        PG[(PostgreSQL<br/>Solo panel operativo<br/>+ auth del dashboard)]
     end
 
-    subgraph "Infraestructura AWS"
-        ALB[Application Load Balancer]
-        ECS[ECS Fargate<br/>Microservicios Node.js]
-        LAM[Lambda<br/>Panel operativo]
-        S3[S3 + CloudFront<br/>SPAs estáticas]
+    subgraph "Infra AWS"
+        ECS[ECS Fargate<br/>Node.js]
+        LAM[Lambda Go<br/>Panel]
+        S3[S3 + CloudFront]
     end
 
+    V --> ECS
     PP --> S3
-    MA --> ALB
-    V --> ALB
+    MA --> ECS
     DP --> S3
 
-    ALB --> ECS
-    S3 -->|API calls| ALB
-    S3 -->|API calls| LAM
-
-    ECS --> MDB
+    ECS -->|Todo| MDB
+    S3 --> ECS
+    S3 --> LAM
     LAM --> PG
 
-    style V fill:#059669,stroke:#047857,color:#fff
-    style PP fill:#7c3aed,stroke:#5b21b6,color:#fff
-    style MA fill:#7c3aed,stroke:#5b21b6,color:#fff
-    style DP fill:#7c3aed,stroke:#5b21b6,color:#fff
     style MDB fill:#16a34a,stroke:#15803d,color:#fff
     style PG fill:#2563eb,stroke:#1d4ed8,color:#fff
+    style DP fill:#f59e0b,stroke:#d97706,color:#000
 ```
 
-### Arquitectura proyectada (30 clinicas)
+### Arquitectura proyectada (30 clinicas) — persistencia polyglot
+
+A 5 clínicas, MongoDB como base de datos única para el EHR funciona. A 30 clínicas, los `$lookup` encadenados entre citas, pagos, pacientes y doctoras degradan el rendimiento y el aggregation pipeline se vuelve inmantenible. La propuesta no es reemplazar MongoDB — es usar cada motor donde es fuerte:
+
+| Motor | Qué almacena | Por qué |
+|-------|-------------|---------|
+| **MongoDB** | Expedientes clínicos, notas médicas, historial por especialidad | Documentos semi-estructurados que varían por especialidad. Un expediente de ginecología tiene campos distintos a uno de nutrición. MongoDB maneja esto sin migraciones de schema. |
+| **PostgreSQL** | Citas, pagos, doctoras, clínicas, servicios, scheduling, analytics | Datos transaccionales con relaciones claras. JOINs, integridad referencial, agregaciones. Si borras una doctora, las citas no quedan huérfanas. |
+| **Redis** | Sesiones, cache de métricas, rate limiting | Datos efímeros de alta velocidad. |
+| **S3** | Imágenes clínicas, PDFs, documentos firmados | Objetos binarios que no pertenecen en ninguna DB. |
 
 ```mermaid
 graph TB
@@ -701,29 +707,31 @@ graph TB
     end
 
     subgraph "API Layer"
-        APIGW[API Gateway<br/>Rate limiting, auth, routing]
+        APIGW[API Gateway + WAF]
     end
 
     subgraph "Compute"
-        ECS[ECS Fargate<br/>Auto-scaling 2→10 tasks<br/>Microservicios Node.js]
-        LAM[Lambda Go<br/>Panel operativo<br/>128MB, ~35ms cold start]
+        ECS[ECS Fargate<br/>Node.js 2→10 tasks]
+        LAM[Lambda Go<br/>Panel 128MB]
     end
 
-    subgraph "Cache + Mensajería"
-        RC[Redis ElastiCache<br/>Sesiones + cache de métricas]
-        SQS[SQS / EventBridge<br/>Eventos entre servicios]
+    subgraph "Cache"
+        RC[Redis ElastiCache]
     end
 
-    subgraph "Datos"
-        MDB[(MongoDB Atlas M30<br/>Sharded por clinic_id<br/>Read replicas por región)]
-        PGW[(Aurora PostgreSQL<br/>Writer — dashboard auth)]
-        PGR[(Aurora PostgreSQL<br/>Read Replica — métricas)]
-        S3D[(S3<br/>Documentos clínicos<br/>Imágenes, PDFs)]
+    subgraph "Mensajería"
+        SQS[SQS + EventBridge]
+    end
+
+    subgraph "Datos — cada motor en su fortaleza"
+        MDB[(MongoDB Atlas<br/>Expedientes clínicos<br/>Notas médicas)]
+        PGT[(Aurora PostgreSQL<br/>Citas, pagos, scheduling<br/>Datos transaccionales)]
+        PGR[(Aurora PostgreSQL<br/>Read Replica<br/>Métricas del panel)]
+        S3D[(S3<br/>Imágenes y PDFs)]
     end
 
     subgraph "Observabilidad"
-        CW[CloudWatch<br/>Logs + Métricas + Alarmas]
-        XR[X-Ray<br/>Tracing distribuido]
+        CW[CloudWatch + X-Ray]
     end
 
     V --> APIGW
@@ -735,124 +743,225 @@ graph TB
     APIGW --> LAM
 
     ECS --> RC
-    ECS --> MDB
+    ECS -->|Expedientes| MDB
+    ECS -->|Citas, pagos| PGT
     ECS --> SQS
     ECS --> S3D
     LAM --> RC
-    LAM --> PGR
-    LAM --> PGW
+    LAM -->|Métricas| PGR
 
-    SQS -.->|Sync citas/pagos| PGR
+    SQS -.->|Eventos| ECS
 
     ECS --> CW
     LAM --> CW
-    ECS --> XR
 
     style APIGW fill:#f59e0b,stroke:#d97706,color:#000
     style RC fill:#dc2626,stroke:#b91c1c,color:#fff
     style MDB fill:#16a34a,stroke:#15803d,color:#fff
-    style PGW fill:#2563eb,stroke:#1d4ed8,color:#fff
+    style PGT fill:#2563eb,stroke:#1d4ed8,color:#fff
     style PGR fill:#2563eb,stroke:#1d4ed8,color:#fff
+    style S3D fill:#64748b,stroke:#475569,color:#fff
 ```
+
+#### Migración gradual: de MongoDB-only a polyglot
+
+No se migra todo de golpe. Los microservicios ya están separados por dominio — se migran uno por uno, empezando por los que más sufren con `$lookup`:
+
+```mermaid
+gantt
+    title Migración a persistencia polyglot
+    dateFormat YYYY-MM-DD
+    axisFormat %Y-%m
+
+    section Fase 1 (ya hecho)
+    Panel en PostgreSQL      :done, 2026-05-01, 30d
+
+    section Fase 2
+    Citas → PostgreSQL       :2026-09-01, 45d
+    Pagos → PostgreSQL       :2026-10-01, 45d
+
+    section Fase 3
+    Scheduling → PostgreSQL  :2027-01-01, 30d
+    Catálogos → PostgreSQL   :2027-01-15, 30d
+
+    section MongoDB se queda
+    Expedientes clínicos     :milestone, 2027-03-01, 0d
+    Notas médicas            :milestone, 2027-03-01, 0d
+```
+
+> **El EHR se queda en MongoDB** — es el caso de uso correcto. Lo que migra a PostgreSQL son los datos transaccionales (citas, pagos, scheduling, catálogos) que necesitan integridad referencial y JOINs eficientes. El resultado es que cada motor hace lo que mejor sabe hacer.
 
 ---
 
 ### 1. MongoDB y Vitalia (EHR)
 
-MongoDB es la elección correcta para el EHR — un expediente médico es un documento semi-estructurado que varía por especialidad. Pero a 30 clínicas los riesgos cambian:
+MongoDB es la elección correcta para expedientes clínicos — un documento médico varía por especialidad y no encaja en un schema rígido. Pero hoy MongoDB también almacena citas, pagos, doctoras y scheduling, datos que son inherentemente relacionales. A 30 clínicas, ese modelo se quiebra:
 
-| Riesgo | Volumen estimado (30 clinicas) | Mitigación |
-|--------|-------------------------------|------------|
-| Colección de expedientes crece a millones de documentos | ~150K pacientes activas, ~2M documentos clínicos | **Sharding por `clinic_id`** — distribuye la carga de lectura/escritura. MongoDB Atlas lo soporta nativamente. Cada clínica se convierte en un shard range predecible. |
-| `$lookup` entre colecciones (citas↔expedientes↔pagos) se degrada | Latencia de 200ms+ en queries cross-collection | **Denormalización selectiva** — embeber datos frecuentemente consultados (resumen de última cita, saldo pendiente) dentro del documento del paciente. Actualizar con Change Streams. |
-| Escritura concurrente en la misma paciente desde múltiples clínicas | Conflictos de escritura si una paciente se atiende en 2 sedes | **Optimistic concurrency** con versionado (`__v` de Mongoose) + retry en conflicto. Alternativa: queue de escritura por paciente con SQS. |
-| Backups y recuperación en caso de desastre | Pérdida de datos clínicos = riesgo legal y de compliance | **MongoDB Atlas continuous backup** con point-in-time recovery. RPO < 1 minuto. Backups cruzados a otra región (us-west-2 si primario es us-east-1). |
-| Esquemas divergen entre clínicas sin control | Deuda técnica acumulada, bugs difíciles de rastrear | **Schema validation rules** en MongoDB 5.0+ a nivel de colección. No tan estricto como SQL, pero previene documentos corruptos. Complementar con validación en Mongoose schemas. |
+**El problema central: `$lookup` no escala para datos transaccionales**
 
-```mermaid
-xychart-beta horizontal
-    title "Latencia lectura MongoDB p95 (ms)"
-    x-axis ["50K docs", "300K docs", "2M docs", "2M + sharding"]
-    y-axis "ms" 0 --> 200
-    bar [8, 35, 180, 12]
-```
-
-> Sin sharding, la latencia de lectura crece de forma no lineal con el volumen. Con sharding por `clinic_id`, cada query solo escanea el shard relevante y la latencia se mantiene estable.
-
-### 2. Microservicios Node.js
-
-El equipo actual (6 devs Node.js) opera un conjunto de microservicios en ECS Fargate. A 30 clínicas:
-
-| Riesgo | Impacto | Mitigación |
-|--------|---------|------------|
-| 6x más tráfico en horario pico (30 vs 5 clínicas abren simultáneamente) | ECS tasks saturan CPU/memoria, latencia se degrada | **Auto-scaling basado en CPU/requests** — ECS Fargate escala de 2 a 10 tasks en <2 minutos. Definir target tracking policy al 60% CPU. |
-| Comunicación sincrónica entre servicios crea cascadas de fallos | Si el servicio de pagos cae, citas y expedientes también fallan | **Circuit breaker pattern** (opossum para Node.js) + comunicación asíncrona con SQS/EventBridge para operaciones no-críticas. Solo mantener sincrónico lo que requiere respuesta inmediata. |
-| Cold starts de Node.js en Lambda (si se migran servicios) | 250-500ms en primera invocación | **No migrar los microservicios core a Lambda** — mantenerlos en ECS Fargate con min tasks=2. Lambda solo para workloads event-driven (webhooks, procesamiento de archivos, panel operativo). |
-| Un solo monorepo crece sin estructura | Deploys lentos, blast radius alto, conflictos de merge | **Separar en repos por dominio** con contratos de API versionados (OpenAPI). CI/CD independiente por servicio. |
-| Dependencias npm con vulnerabilidades | Supply chain attack en servicios con datos médicos | **Dependabot + npm audit** en CI. Lock files (`package-lock.json`) commiteados. Política de actualización mensual de deps. |
+| Operación | MongoDB (actual) | PostgreSQL (propuesto) |
+|-----------|-----------------|----------------------|
+| Listar citas de una paciente con doctora y clínica | `$lookup` × 3 colecciones, ~85ms | JOIN × 3 tablas, ~12ms |
+| Ingresos por clínica desglosados por servicio | Aggregation pipeline de 6 stages | GROUP BY + JOIN, SQL legible |
+| Integridad: borrar doctora sin citas huérfanas | No hay — la app debe validar | CASCADE o RESTRICT a nivel de DB |
+| Buscar citas en rango de fecha con filtros compuestos | Índice compuesto parcial | Índice B-tree compuesto nativo |
 
 ```mermaid
 xychart-beta horizontal
-    title "Tiempo de respuesta p99 (ms)"
-    x-axis ["50 req/s", "150 req/s", "300 req/s", "300 + auto-scale"]
-    y-axis "ms" 0 --> 800
-    bar [45, 120, 650, 85]
+    title "Latencia p95 queries transaccionales (ms)"
+    x-axis ["5 clinicas", "15 clinicas", "30 clinicas"]
+    y-axis "ms" 0 --> 250
+    bar "MongoDB $lookup" [25, 85, 210]
+    bar "PostgreSQL JOIN" [8, 10, 12]
 ```
+
+> A 5 clínicas la diferencia es tolerable. A 30, MongoDB está 17x más lento para queries relacionales. La propuesta no es reemplazar MongoDB — es **mover los datos transaccionales a PostgreSQL** y dejar que MongoDB haga lo que sabe: almacenar expedientes semi-estructurados.
+
+**Lo que se queda en MongoDB y por qué:**
+
+| Dato | Se queda en MongoDB | Razón |
+|------|:-------------------:|-------|
+| Expedientes clínicos | Si | Varía por especialidad, schema flexible es ventaja real |
+| Notas médicas | Si | Texto libre con adjuntos, no relacional |
+| Historial por especialidad | Si | Documentos anidados con profundidad variable |
+| Citas y scheduling | **No → PostgreSQL** | Relacional puro: paciente + doctora + clínica + fecha + status |
+| Pagos y facturación | **No → PostgreSQL** | Requiere integridad referencial, JOINs con citas y servicios |
+| Catálogos (servicios, especialidades) | **No → PostgreSQL** | Datos estáticos que se JOINean constantemente |
+| Doctoras y clínicas | **No → PostgreSQL** | Entidades con relaciones claras (doctora → clínica) |
+
+**Riesgos que persisten para MongoDB (expedientes):**
+
+| Riesgo | Mitigación |
+|--------|------------|
+| ~2M documentos clínicos a 30 clínicas | Sharding por `clinic_id` — cada query solo escanea el shard relevante |
+| Escritura concurrente en la misma paciente desde 2 sedes | Optimistic concurrency con `__v` de Mongoose + retry |
+| Pérdida de datos clínicos = riesgo legal | Atlas continuous backup, point-in-time recovery, RPO < 1 min |
+| Schemas divergen entre clínicas sin control | Schema validation rules (MongoDB 5.0+) + validación en Mongoose |
+
+### 2. Microservicios Node.js — qué se queda, qué cambia
+
+El equipo tiene 6 devs Node.js y un conjunto de microservicios en ECS Fargate. La pregunta no es "¿cómo escalo todo igual?" sino "¿qué servicios justifican seguir en Node.js y cuáles se benefician de migrar?"
+
+#### Decisión por servicio
+
+| Servicio | Decisión | Razón |
+|----------|----------|-------|
+| **EHR / Expedientes** | **Se queda en Node.js + MongoDB** | El equipo lo conoce, Mongoose maneja bien los documentos semi-estructurados, y el EHR no tiene problemas de rendimiento con su propio data. No se gana nada migrándolo. |
+| **Citas / Scheduling** | **Se queda en Node.js, migra a PostgreSQL** | La lógica de negocio es compleja (disponibilidad, conflictos, recurrencia) y el equipo la domina en Node.js. Pero el almacenamiento pasa de MongoDB a PostgreSQL — los `$lookup` para cruzar citas↔doctoras↔clínicas son el cuello de botella real, no el runtime. |
+| **Pagos / Facturación** | **Se queda en Node.js, migra a PostgreSQL** | Integridad referencial es crítica para datos financieros. Un pago huérfano (sin cita asociada) es un bug en MongoDB; en PostgreSQL es imposible por diseño. |
+| **Notificaciones** | **Migra a Lambda (Node.js)** | Workload event-driven puro: recibe evento → envía push/email/SMS → termina. No necesita un servidor corriendo 24/7. Lambda es ideal y más barato. |
+| **Procesamiento de archivos** | **Migra a Lambda (Node.js)** | Generar PDFs, resize de imágenes, exports. Stateless, esporádico, paralelizable. Lambda escala sin config. |
+| **Auth / Usuarios** | **Se queda en Node.js + PostgreSQL** | Ya es relacional (users, roles, sessions). Si hoy está en MongoDB, migrar a PostgreSQL es directo y gana integridad + JOINs con user_clinics. |
+| **Panel operativo** | **Ya está en Go + PostgreSQL** | Servicio aislado, read-only, optimizado para analytics. No requiere que el equipo de Node.js lo mantenga. |
+
+#### ¿Por qué no migrar todo a Go?
+
+Sería un error. El equipo tiene 6 devs con experiencia en Node.js. Reescribir servicios en Go implica:
+- Meses de desarrollo sin valor de negocio nuevo
+- Curva de aprendizaje para todo el equipo
+- Riesgo de bugs en la reescritura
+
+**La base de datos era el problema, no el runtime.** Node.js en ECS Fargate con auto-scaling maneja 300 req/s sin problema. Lo que no escala son los `$lookup` de MongoDB para datos relacionales.
+
+```mermaid
+xychart-beta horizontal
+    title "Respuesta p99 por servicio a 30 clinicas (ms)"
+    x-axis ["EHR (Node+Mongo)", "Citas (Node+PG)", "Pagos (Node+PG)", "Panel (Go+PG)"]
+    y-axis "ms" 0 --> 120
+    bar [45, 25, 20, 12]
+```
+
+#### Infraestructura de compute
+
+| Servicio | Compute | Por qué |
+|----------|---------|---------|
+| EHR, Citas, Pagos, Auth | **ECS Fargate** (auto-scale 2→8 tasks) | Servicios con estado de conexión (DB pools, sesiones). Necesitan estar siempre corriendo. Fargate escala sin gestionar EC2. |
+| Notificaciones, Archivos | **Lambda** (Node.js) | Event-driven, esporádico. No pagan por idle. |
+| Panel operativo | **Lambda** (Go) | Read-only, picos intermitentes. Go elimina cold starts. |
+
+```mermaid
+xychart-beta horizontal
+    title "Costo mensual compute a 30 clinicas (USD)"
+    x-axis ["ECS Fargate", "Lambda Node.js", "Lambda Go"]
+    y-axis "USD/mes" 0 --> 500
+    bar [380, 15, 2]
+```
+
+> ECS Fargate es el costo dominante. Se optimiza con **Fargate Spot** para tasks no-críticos (notificaciones, procesamiento batch) — ahorra hasta 70%. Los servicios críticos (EHR, Citas, Pagos) se mantienen en Fargate on-demand para garantizar disponibilidad.
+
+#### Riesgos operativos y mitigación
+
+| Riesgo | Mitigación |
+|--------|------------|
+| Cascada de fallos entre servicios | **Circuit breaker** (opossum) + comunicación asíncrona con SQS para operaciones no-críticas |
+| Deploy de un servicio rompe otro | **CI/CD independiente** por servicio con contratos OpenAPI versionados |
+| Dependencias npm con vulnerabilidades | **Dependabot + npm audit** en CI. Lock files commiteados. Actualización mensual de deps. |
+| 6x más tráfico en horario pico | **Auto-scaling** ECS target tracking al 60% CPU. Escala de 2→8 tasks en <2 min. |
 
 ### 3. App móvil y portal de pacientes
 
-| Riesgo | Impacto | Mitigación |
-|--------|---------|------------|
-| 30 clínicas = ~90K pacientes activas usando la app | Push notifications saturan, API de citas recibe picos de 1K+ req/s al abrir agenda matutina | **API Gateway con throttling** por usuario (100 req/min). Push notifications via SNS con batching. |
-| Pacientes en múltiples ciudades con latencia variable | UX degradada para clínicas fuera de la región principal del servidor | **CloudFront para assets estáticos** + evaluar multi-región para la API si se expande fuera de CDMX. |
-| Actualizaciones de la app móvil forzadas por cambios de API | Pacientes con versiones viejas reciben errores | **API versioning** (v1, v2) con deprecación gradual. Mínimo 2 versiones activas simultáneas. Feature flags para rollout progresivo (LaunchDarkly o GrowthBook). |
-| Datos médicos en dispositivos móviles | Riesgo de compliance si el dispositivo se pierde/roba | **No cachear datos clínicos en disco** — solo en memoria. Sesión con timeout de inactividad (15 min). Biometric auth para reabrir. |
+Los productos de cara a la paciente son los más sensibles al crecimiento — 30 clínicas implican ~90K pacientes activas, picos de tráfico por apertura de agenda matutina, y expansión geográfica fuera de CDMX.
+
+**Decisiones concretas:**
+
+| Decisión | Qué se hace | Por qué |
+|----------|-------------|---------|
+| **API Gateway obligatorio** | Todas las requests pasan por API Gateway con throttling (100 req/min por usuario) | Sin throttling, 90K pacientes abriendo agenda a las 8am saturan los servicios. El Gateway absorbe el pico y protege ECS. |
+| **No cachear datos clínicos en disco** | Solo en memoria, con sesión de 15 min inactivo + biometric auth | Un dispositivo perdido con expedientes en caché local es un incidente de compliance. Prevenir > remediar. |
+| **API versionada (v1, v2)** | Mínimo 2 versiones activas, deprecación gradual | Las pacientes no actualizan la app el mismo día. Sin versionado, un cambio de API rompe dispositivos viejos y se pierden pacientes. |
+| **Feature flags (GrowthBook)** | Rollout progresivo por clínica, no global | Probar features nuevos en 1-2 clínicas antes de desplegarlo a 30. Reduce blast radius de bugs en producción. |
+| **CloudFront para assets** | SPAs y contenido estático servidos desde edge | Si Nua se expande fuera de CDMX (Monterrey, Guadalajara), la latencia de assets se mantiene baja sin cambiar la API. |
 
 ### 4. Panel operativo (este proyecto)
 
-| Riesgo | Impacto | Mitigación |
-|--------|---------|------------|
-| Queries analíticas compiten con escritura transaccional del EHR | Latencia en el dashboard cuando hay carga operativa alta | **Read replica de PostgreSQL** dedicada al panel. Cambio de infra, no de código — solo se modifica la connection string. |
-| Volumen de datos crece (~500K citas/año, ~500K pagos/año) | Queries de cohortes y agregaciones se vuelven más lentas | **Índices compuestos** en `(clinic_id, date)` y `(doctor_id, status)` ya están preparados. Si no es suficiente, materialized views para métricas consolidadas mensuales. |
-| Más fuentes de datos (NPS, marketing, costos operativos) | El modelo relacional operativo se vuelve insuficiente | Migrar la capa analítica a un **data warehouse columnar** (Redshift, BigQuery). La migración es directa porque ambos hablan SQL. |
-| 30 clínicas × múltiples directoras = más usuarios concurrentes | Conexiones saturan el pool | **PgBouncer** entre la API y PostgreSQL. |
-| Más combinaciones de filtros = más queries distintas | Cache miss frecuente | **Redis cache** con TTL de 5-15 min para métricas de baja volatilidad (ingresos consolidados, cohortes). |
-| Filtros con 30 clínicas en dropdowns | UX degradada | Búsqueda dentro del multi-select, agrupación por zona geográfica. |
-| Sin export de reportes | Directoras necesitan compartir métricas offline | **Export CSV y PDF** desde el frontend. |
+El panel ya está diseñado para escalar — Go en Lambda, PostgreSQL con queries sqlc, filtros dinámicos. Lo que cambia a 30 clínicas:
+
+| Escala | Ya resuelto | Pendiente a 30 clínicas |
+|--------|------------|------------------------|
+| **Datos** | Índices compuestos, sqlc sin overhead ORM | Read replica para separar lectura analítica de escritura. PgBouncer para connection pooling. |
+| **Cache** | — | Redis con TTL 5-15 min para cohortes e ingresos consolidados. Estas métricas no cambian en tiempo real. |
+| **UX filtros** | Multi-select clínica ya implementado | Agregar búsqueda dentro del selector y agrupación por zona geográfica. |
+| **Exports** | — | CSV y PDF desde el frontend para que directoras compartan métricas offline. |
+| **Más fuentes de datos** | — | Si se agregan NPS, marketing o costos operativos: migrar a data warehouse columnar (Redshift/BigQuery). SQL compatible, migración directa. |
 
 ### 5. Sincronización de datos entre sistemas
 
-El panel operativo consume datos del EHR (MongoDB) pero los almacena en PostgreSQL. A 30 clínicas, la sincronización se vuelve crítica:
+Con la migración polyglot, los servicios de citas y pagos **escriben directo en PostgreSQL** — no hay duplicación ni sync para esos datos. La sincronización solo es necesaria entre MongoDB (expedientes) y PostgreSQL (datos transaccionales) cuando un flujo clínico necesita cruzar ambos mundos:
 
 ```mermaid
 graph LR
-    subgraph "EHR (MongoDB)"
-        CS[Change Streams<br/>citas, pagos, pacientes]
+    subgraph "Servicios que escriben en PostgreSQL"
+        SC[Citas / Scheduling]
+        SP[Pagos / Facturación]
     end
 
-    subgraph "Sync Layer"
-        SQS[SQS Queue<br/>Buffer de eventos]
-        W[Worker Node.js<br/>Transformación + carga]
+    subgraph "Servicios que escriben en MongoDB"
+        SE[EHR / Expedientes]
     end
 
-    subgraph "Panel (PostgreSQL)"
-        PG[(appointments<br/>payments<br/>patients)]
+    subgraph "PostgreSQL"
+        PG[(citas, pagos,<br/>doctoras, clínicas)]
     end
 
-    CS -->|Eventos en tiempo real| SQS
-    SQS --> W
-    W -->|Upsert| PG
+    subgraph "MongoDB"
+        MDB[(expedientes,<br/>notas médicas)]
+    end
 
-    style CS fill:#16a34a,stroke:#15803d,color:#fff
-    style SQS fill:#f59e0b,stroke:#d97706,color:#000
+    SC -->|Escribe directo| PG
+    SP -->|Escribe directo| PG
+    SE -->|Escribe directo| MDB
+
+    SE -.->|Referencia por ID<br/>patient_id, clinic_id| PG
+
     style PG fill:#2563eb,stroke:#1d4ed8,color:#fff
+    style MDB fill:#16a34a,stroke:#15803d,color:#fff
 ```
 
-| Patrón | Cuándo usarlo | Latencia |
-|--------|---------------|----------|
-| **Change Streams → SQS → Worker** | Datos que necesitan estar actualizados en <5 min (citas del día, pagos) | ~2-10 segundos |
-| **ETL batch nocturno** | Datos históricos que no cambian (cohortes pasadas, métricas consolidadas) | Nightly job |
-| **API directa al EHR** | Datos que cambian muy frecuentemente y no justifican duplicación | Tiempo real, pero acopla los sistemas |
+| Escenario | Cómo se resuelve |
+|-----------|-----------------|
+| EHR necesita datos de cita (fecha, doctora) | Consulta a PostgreSQL por `appointment_id` — JOIN limpio, no `$lookup` |
+| Panel necesita datos de expediente | No los necesita — las métricas operativas son sobre citas, pagos y ocupación, no sobre expedientes clínicos |
+| Reporte clínico necesita cruzar expediente + pagos | API gateway orquesta: consulta MongoDB para expediente + PostgreSQL para historial de pagos. El frontend los combina. |
 
 ### 6. Seguridad y compliance (HIPAA / datos médicos)
 
@@ -871,80 +980,64 @@ graph LR
 ```mermaid
 xychart-beta horizontal
     title "Costo mensual infra AWS (USD)"
-    x-axis ["5 clinicas", "15 clinicas", "30 clinicas", "30 optimizado"]
+    x-axis ["5 clinicas", "15 clinicas", "30 Mongo-only", "30 polyglot"]
     y-axis "USD/mes" 0 --> 2500
-    bar [350, 850, 2200, 1400]
+    bar [350, 650, 2200, 827]
 ```
 
-| Componente | 5 clínicas | 30 clínicas | Optimización |
-|------------|-----------|-------------|-------------|
-| MongoDB Atlas | M10 ($60) | M30 + sharding ($450) | Reservar instancia 1 año (-40%) |
-| ECS Fargate | 2 tasks ($80) | 2-10 tasks auto-scale ($400) | Fargate Spot para tasks no-críticos (-70%) |
-| Aurora PostgreSQL | Serverless v2 ($30) | Serverless v2 + replica ($90) | — ya es serverless |
-| Lambda (panel) | ~$0.15 | ~$2 | — irrelevante a esta escala |
+| Componente | 5 clínicas | 30 clínicas (polyglot) | Optimización |
+|------------|-----------|------------------------|-------------|
+| MongoDB Atlas (solo expedientes) | M10 ($60) | M20 ($200) | Con polyglot, MongoDB almacena menos datos (solo expedientes), baja de M30 a M20. Reservar 1 año (-40%). |
+| Aurora PostgreSQL (citas, pagos, panel) | Serverless v2 ($30) | Serverless v2 + replica ($120) | Absorbe datos que salen de MongoDB. Más carga, pero SQL es más eficiente para estos datos. |
+| ECS Fargate | 2 tasks ($80) | 2-8 tasks auto-scale ($350) | Fargate Spot para tasks no-críticos (-70%) |
+| Lambda (panel + notificaciones) | ~$0.15 | ~$17 | — irrelevante vs otros costos |
 | ElastiCache Redis | — | t3.micro ($15) | — |
 | CloudFront + S3 | $5 | $15 | — |
-| API Gateway | $10 | $50 | — |
-| Monitoring (CloudWatch) | $15 | $80 | Filtrar logs, retención 30 días |
-| **Total** | **~$350** | **~$2,200** | **~$1,400** |
+| API Gateway + WAF | $10 | $60 | — |
+| CloudWatch + X-Ray | $15 | $50 | Filtrar logs, retención 30 días |
+| **Total** | **~$350** | **~$827** | **~$650** |
 
-### 8. Equipo y organización
+> Con persistencia polyglot, el costo a 30 clínicas baja de ~$2,200 (escalar MongoDB para todo) a ~$827 — porque PostgreSQL maneja los datos transaccionales de forma más eficiente y MongoDB se dimensiona solo para expedientes clínicos.
 
-El crecimiento de equipo no debe ser proporcional al de clínicas. Con las herramientas correctas, capacitación continua y adopción ética de IA generativa, un equipo de 6 puede escalar a 30 clínicas creciendo solo ~25% en headcount:
+### 8. Productividad del equipo: IA generativa como multiplicador
 
-```mermaid
-xychart-beta horizontal
-    title "Equipo actual vs proyectado (personas)"
-    x-axis ["5 clinicas", "15 clinicas", "30 clinicas"]
-    y-axis "Personas" 0 --> 10
-    bar "Dev + DevOps" [6, 7, 8]
-```
-
-| Fase | Equipo | Estrategia |
-|------|--------|------------|
-| 5 clínicas (hoy) | 6 devs full-stack Node.js | Equipo actual cubre todo. Invertir en capacitación sobre el negocio clínico para que las decisiones técnicas estén informadas por contexto operativo. |
-| 10-15 clínicas | 7 personas (+1 DevOps/SRE) | El nuevo rol absorbe infra, CI/CD y monitoring, liberando a los 6 devs para producto. **Capacitación del equipo** en el stack nuevo (Go para el panel) y en herramientas de IA generativa (Cursor, Claude Code, Copilot) para multiplicar productividad individual. |
-| 20-30 clínicas | 8 personas (+1 dev senior) | Un senior con experiencia en el dominio (healthtech o fintech). El equipo existente ya está capacitado y potenciado con IA. **Uso ético de IA generativa**: code review asistido, generación de tests, documentación automática — nunca para decisiones clínicas ni datos de pacientes. |
-
-#### IA generativa como multiplicador de productividad
-
-En lugar de contratar para escalar, el equipo adopta herramientas de IA de forma estructurada:
+El crecimiento de clínicas no debe ser proporcional al de headcount. Con capacitación continua y adopción ética de IA generativa, el equipo actual puede absorber significativamente más carga sin escalar proporcionalmente:
 
 | Uso | Herramienta | Impacto estimado | Política de uso |
 |-----|-------------|------------------|-----------------|
 | Desarrollo y refactoring | Claude Code, Cursor | +40-60% velocidad en código nuevo | Revisión humana obligatoria antes de merge. Nunca auto-merge. |
 | Tests unitarios y de integración | Claude Code, Copilot | +80% cobertura con menos esfuerzo | IA genera tests, humano valida escenarios de negocio. |
 | Code review | Claude Code | Primer pase automático, humano revisa lo crítico | IA detecta bugs obvios y security issues. Decisiones de diseño las toma el equipo. |
-| Documentación | Claude Code | READMEs y docs técnicos actualizados | IA genera, humano aprueba. No se usa IA para documentación clínica. |
+| Documentación | Claude Code | Docs técnicos actualizados sin esfuerzo manual | IA genera, humano aprueba. No se usa IA para documentación clínica. |
+| Capacitación en nuevo stack | Claude Code | Onboarding acelerado en Go, PostgreSQL | IA como tutor contextual — explica código, sugiere patrones idiomáticos. |
 | **Datos de pacientes** | **Ninguna** | — | **Prohibido** enviar datos reales de pacientes a herramientas de IA externas. Solo datos sintéticos para desarrollo. |
+
+La clave es **capacitación antes de herramientas**: el equipo primero entiende el negocio clínico y el stack elegido, después potencia su productividad con IA. Sin esa base, la IA amplifica velocidad pero también amplifica errores.
 
 ### Resumen de prioridades por fase
 
 ```mermaid
 gantt
-    title Roadmap — plataforma completa
+    title Roadmap técnico — plataforma completa
     dateFormat YYYY-MM-DD
     axisFormat %Y-%m
 
     section 10 clinicas
-    Mongo read replicas   :2026-07-01, 30d
+    API Gateway + WAF     :2026-07-01, 30d
     ECS auto-scaling      :2026-07-01, 30d
-    API Gateway + WAF     :2026-07-15, 30d
-    +1 DevOps/SRE         :2026-07-01, 60d
-    CI/CD por servicio    :2026-08-01, 30d
-    Capacitacion IA       :2026-08-01, 30d
+    CI/CD por servicio    :2026-07-15, 30d
+    Citas → PostgreSQL    :2026-08-01, 45d
+    Pagos → PostgreSQL    :2026-09-01, 45d
 
     section 15-20 clinicas
-    Mongo sharding        :2026-10-01, 45d
-    Sync SQS panel        :2026-10-01, 45d
-    Redis cache           :2026-10-15, 30d
-    Aurora read replica   :2026-11-01, 15d
-    2FA admin             :2026-11-01, 30d
+    Mongo sharding        :2026-11-01, 30d
+    Redis cache           :2026-11-01, 30d
+    Aurora read replica   :2026-11-15, 15d
+    2FA admin             :2026-12-01, 30d
 
     section 25-30 clinicas
-    Circuit breakers      :2027-01-01, 30d
-    Tracing X-Ray         :2027-01-15, 30d
-    Data warehouse        :2027-02-01, 60d
-    +1 Dev senior         :2027-01-01, 60d
-    Incident runbook      :2027-01-01, 30d
+    Circuit breakers      :2027-02-01, 30d
+    Tracing X-Ray         :2027-02-15, 30d
+    Data warehouse        :2027-03-01, 60d
+    Incident runbook      :2027-02-01, 30d
 ```
