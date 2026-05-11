@@ -5,26 +5,36 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from 'react'
 import type { ReactNode } from 'react'
 import { createElement } from 'react'
 import type { GlobalFilterValues, Clinic, Doctor } from '../types/api'
-import { fetchClinics, fetchDoctors, fetchSpecialties } from '../services/api'
+import { fetchClinics, fetchDoctors, fetchSpecialties, fetchDateRange } from '../services/api'
 
 // Presets de fecha disponibles
 export type DatePreset =
+  | 'all'
   | 'today'
   | 'this_week'
   | 'this_month'
   | 'last_3_months'
   | 'custom'
 
-// Calcula las fechas según el preset seleccionado
-function getDateRange(preset: DatePreset): { from: string; to: string } {
+interface DataDateRange {
+  min_date: string
+  max_date: string
+}
+
+function getDateRange(preset: DatePreset, dataRange: DataDateRange | null): { from: string; to: string } {
   const today = new Date()
   const fmt = (d: Date) => d.toISOString().split('T')[0]
 
   switch (preset) {
+    case 'all':
+      return dataRange
+        ? { from: dataRange.min_date, to: dataRange.max_date }
+        : { from: fmt(today), to: fmt(today) }
     case 'today':
       return { from: fmt(today), to: fmt(today) }
     case 'this_week': {
@@ -44,7 +54,9 @@ function getDateRange(preset: DatePreset): { from: string; to: string } {
       return { from: fmt(threeMonths), to: fmt(today) }
     }
     default:
-      return { from: '2025-01-01', to: '2025-02-28' }
+      return dataRange
+        ? { from: dataRange.min_date, to: dataRange.max_date }
+        : { from: fmt(today), to: fmt(today) }
   }
 }
 
@@ -60,36 +72,45 @@ interface FiltersContextValue {
   doctors: Doctor[]
   specialties: string[]
   loadingFilters: boolean
+  dataRange: DataDateRange | null
 }
 
 const FiltersContext = createContext<FiltersContextValue | null>(null)
 
-// Rango por defecto: coincide con los datos dummy del backend
-const DEFAULT_FILTERS: GlobalFilterValues = {
-  clinic_id: '',
-  doctor_id: '',
-  specialty: '',
-  date_from: '2025-01-01',
-  date_to: '2025-02-28',
-  group_by: 'month',
-}
-
 export function FiltersProvider({ children }: { children: ReactNode }) {
-  const [filters, setFilters] = useState<GlobalFilterValues>(DEFAULT_FILTERS)
-  const [activePreset, setActivePreset] = useState<DatePreset>('custom')
+  const [filters, setFilters] = useState<GlobalFilterValues>({
+    clinic_id: '',
+    doctor_id: '',
+    specialty: '',
+    date_from: '',
+    date_to: '',
+    group_by: 'month',
+  })
+  const [activePreset, setActivePreset] = useState<DatePreset>('all')
   const [clinics, setClinics] = useState<Clinic[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [specialties, setSpecialties] = useState<string[]>([])
   const [loadingFilters, setLoadingFilters] = useState(true)
+  const [dataRange, setDataRange] = useState<DataDateRange | null>(null)
+  const dataRangeRef = useRef<DataDateRange | null>(null)
 
-  // Cargar catálogos de filtros al montar
   useEffect(() => {
     const load = async () => {
       try {
-        const [c, s] = await Promise.all([fetchClinics(), fetchSpecialties()])
+        const [c, s, dr] = await Promise.all([
+          fetchClinics(),
+          fetchSpecialties(),
+          fetchDateRange(),
+        ])
         setClinics(c)
         setSpecialties(s)
-        // Cargar doctoras sin filtro de clínica
+        setDataRange(dr)
+        dataRangeRef.current = dr
+        setFilters((prev) => ({
+          ...prev,
+          date_from: dr.min_date,
+          date_to: dr.max_date,
+        }))
         const d = await fetchDoctors()
         setDoctors(d)
       } catch (err) {
@@ -101,13 +122,11 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     load()
   }, [])
 
-  // Recargar doctoras cuando cambia la clínica
   useEffect(() => {
     const load = async () => {
       try {
         const d = await fetchDoctors(filters.clinic_id || undefined)
         setDoctors(d)
-        // Si la doctora seleccionada no pertenece a la nueva clínica, limpiar
         if (
           filters.doctor_id &&
           !d.some((doc) => doc.id === filters.doctor_id)
@@ -127,7 +146,6 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       value: GlobalFilterValues[K]
     ) => {
       setFilters((prev) => ({ ...prev, [key]: value }))
-      // Si cambian las fechas manualmente, marcar como personalizado
       if (key === 'date_from' || key === 'date_to') {
         setActivePreset('custom')
       }
@@ -137,7 +155,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
 
   const setDatePreset = useCallback((preset: DatePreset) => {
     setActivePreset(preset)
-    const { from, to } = getDateRange(preset)
+    const { from, to } = getDateRange(preset, dataRangeRef.current)
     setFilters((prev) => ({ ...prev, date_from: from, date_to: to }))
   }, [])
 
@@ -153,13 +171,13 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
         doctors,
         specialties,
         loadingFilters,
+        dataRange,
       },
     },
     children
   )
 }
 
-// Hook para consumir el contexto de filtros
 export function useFilters() {
   const ctx = useContext(FiltersContext)
   if (!ctx) {

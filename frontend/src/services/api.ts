@@ -73,6 +73,9 @@ export const fetchDoctors = (clinicId?: string) =>
 export const fetchSpecialties = () =>
   apiFetch<{ data: string[] }>('/filters/specialties').then((r) => r.data)
 
+export const fetchDateRange = () =>
+  apiFetch<{ min_date: string; max_date: string }>('/filters/date-range')
+
 // --- Métricas ---
 
 import type {

@@ -26,6 +26,7 @@ func Setup(rg *gin.RouterGroup, queries *operationalsqlc.Queries) {
 	// Filtros para los selectores del frontend
 	f := rg.Group("/filters")
 	{
+		f.GET("/date-range", ctrl.DateRange)
 		f.GET("/clinics", ctrl.ListClinics)
 		f.GET("/doctors", ctrl.ListDoctors)
 		f.GET("/specialties", ctrl.ListSpecialties)

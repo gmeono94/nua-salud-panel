@@ -338,6 +338,20 @@ func (ctrl *Controller) RetentionCohorts(c *gin.Context) {
 	})
 }
 
+// DateRange — Rango de fechas con datos disponibles.
+// GET /api/v1/filters/date-range
+func (ctrl *Controller) DateRange(c *gin.Context) {
+	row, err := ctrl.q.GetDateRange(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error obteniendo rango de fechas"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"min_date": row.MinDate.Time.Format("2006-01-02"),
+		"max_date": row.MaxDate.Time.Format("2006-01-02"),
+	})
+}
+
 // ListClinics — Clínicas activas para el selector de filtros.
 // GET /api/v1/filters/clinics
 func (ctrl *Controller) ListClinics(c *gin.Context) {

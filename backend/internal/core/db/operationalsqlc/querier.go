@@ -28,6 +28,8 @@ type Querier interface {
 	GetCancellationRateSummary(ctx context.Context, arg GetCancellationRateSummaryParams) (GetCancellationRateSummaryRow, error)
 	// M8: Tamaño de cada cohorte (pacientes con primera cita en ese mes)
 	GetCohortSizes(ctx context.Context, arg GetCohortSizesParams) ([]GetCohortSizesRow, error)
+	// Rango de fechas con datos en citas
+	GetDateRange(ctx context.Context) (GetDateRangeRow, error)
 	// M3: Pacientes nuevas vs recurrentes en el período.
 	// Nueva = su primera cita completada en todo Nua cae dentro del rango.
 	GetNewVsReturning(ctx context.Context, arg GetNewVsReturningParams) (GetNewVsReturningRow, error)
