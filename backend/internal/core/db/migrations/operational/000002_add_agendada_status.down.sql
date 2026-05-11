@@ -1,0 +1,3 @@
+-- PostgreSQL no permite remover valores de un enum directamente.
+-- Para revertir se necesitaría recrear el tipo, lo cual no es seguro en producción.
+-- Este down es intencional como no-op.

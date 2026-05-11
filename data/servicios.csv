@@ -1,0 +1,11 @@
+id,nombre,especialidad,precio,activo
+S001,consulta ginecologica,ginecologia,1800,true
+S002,check-up basico,ginecologia,2500,true
+S003,check-up plus,ginecologia,1800,true
+S004,consulta prenatal,obstetricia,1200,true
+S005,consulta obstetrica,obstetricia,1200,true
+S006,ultrasonido cromosomico,obstetricia,1500,true
+S007,ultrasonido estructural,obstetricia,1200,true
+S008,check-up 40+,menopausia,900,true
+S009,seguimiento menopausia,menopausia,2500,true
+S010,seguimiento obstetricia,obstetricia,2500,true
