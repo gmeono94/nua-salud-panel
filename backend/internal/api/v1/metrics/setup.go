@@ -18,6 +18,9 @@ func Setup(rg *gin.RouterGroup, queries *operationalsqlc.Queries) {
 		m.GET("/patients", ctrl.Patients)
 		m.GET("/revenue", ctrl.Revenue)
 		m.GET("/top-doctors", ctrl.TopDoctors)
+		m.GET("/cancellation-rate", ctrl.CancellationRate)
+		m.GET("/avg-ticket", ctrl.AvgTicket)
+		m.GET("/retention-cohorts", ctrl.RetentionCohorts)
 	}
 
 	// Filtros para los selectores del frontend
