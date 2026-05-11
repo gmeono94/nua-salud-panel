@@ -1,4 +1,4 @@
-// Entry point de la aplicación. Carga configuración, conecta a la base
+// Entry point de la aplicación. Carga configuración, conecta a las bases
 // de datos e inicia el servidor en modo local o Lambda.
 package main
 
@@ -22,8 +22,9 @@ func main() {
 	// Cargar configuración desde variables de entorno
 	settings.Load()
 
-	// Conectar a PostgreSQL
-	db.Connect(settings.AppSettings.DatabaseURL)
+	// Conectar a ambas bases de datos
+	db.ConnectOperational(settings.AppSettings.DatabaseURL)
+	db.ConnectDashboard(settings.AppSettings.DashboardDBURL)
 	defer db.Close()
 
 	// Configurar router con rutas y middlewares

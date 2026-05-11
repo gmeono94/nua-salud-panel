@@ -1,12 +1,27 @@
 version: "2"
 sql:
+  # Base de datos operativa (citas, clínicas, doctoras, pacientes, pagos)
   - engine: "postgresql"
-    queries: "./internal/core/db/queries/"
-    schema: "./internal/core/db/schema/"
+    queries: "./internal/core/db/queries/operational/"
+    schema: "./internal/core/db/schema/operational/"
     gen:
       go:
-        package: "nuasqlc"
-        out: "./internal/core/db/nuasqlc"
+        package: "operationalsqlc"
+        out: "./internal/core/db/operationalsqlc"
+        sql_package: "pgx/v5"
+        emit_json_tags: true
+        emit_prepared_queries: false
+        emit_interface: true
+        emit_exact_table_names: false
+
+  # Base de datos del dashboard (usuarios, auth, bitácora)
+  - engine: "postgresql"
+    queries: "./internal/core/db/queries/dashboard/"
+    schema: "./internal/core/db/schema/dashboard/"
+    gen:
+      go:
+        package: "dashboardsqlc"
+        out: "./internal/core/db/dashboardsqlc"
         sql_package: "pgx/v5"
         emit_json_tags: true
         emit_prepared_queries: false

@@ -1,4 +1,5 @@
-// Inicialización de la conexión a PostgreSQL y ejecución de migraciones.
+// Inicialización de las conexiones a PostgreSQL.
+// Se manejan dos pools separados: uno para datos operativos y otro para el dashboard.
 package db
 
 import (
@@ -8,28 +9,44 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Pool es la conexión compartida a PostgreSQL.
-var Pool *pgxpool.Pool
+// OperationalPool es la conexión a la DB de datos operativos (citas, clínicas, etc.)
+var OperationalPool *pgxpool.Pool
 
-// Connect establece la conexión a PostgreSQL usando un pool de conexiones.
-func Connect(databaseURL string) {
+// DashboardPool es la conexión a la DB del dashboard (usuarios, auth, bitácora)
+var DashboardPool *pgxpool.Pool
+
+// ConnectOperational establece la conexión al pool de datos operativos.
+func ConnectOperational(databaseURL string) {
 	var err error
-	Pool, err = pgxpool.New(context.Background(), databaseURL)
+	OperationalPool, err = pgxpool.New(context.Background(), databaseURL)
 	if err != nil {
-		log.Fatalf("Error conectando a PostgreSQL: %v", err)
+		log.Fatalf("Error conectando a DB operativa: %v", err)
 	}
-
-	// Verificar que la conexión funcione
-	if err := Pool.Ping(context.Background()); err != nil {
-		log.Fatalf("Error verificando conexión a PostgreSQL: %v", err)
+	if err := OperationalPool.Ping(context.Background()); err != nil {
+		log.Fatalf("Error verificando conexión a DB operativa: %v", err)
 	}
-
-	log.Println("Conexión a PostgreSQL establecida")
+	log.Println("Conexión a DB operativa establecida")
 }
 
-// Close cierra el pool de conexiones.
+// ConnectDashboard establece la conexión al pool del dashboard.
+func ConnectDashboard(databaseURL string) {
+	var err error
+	DashboardPool, err = pgxpool.New(context.Background(), databaseURL)
+	if err != nil {
+		log.Fatalf("Error conectando a DB dashboard: %v", err)
+	}
+	if err := DashboardPool.Ping(context.Background()); err != nil {
+		log.Fatalf("Error verificando conexión a DB dashboard: %v", err)
+	}
+	log.Println("Conexión a DB dashboard establecida")
+}
+
+// Close cierra ambos pools de conexiones.
 func Close() {
-	if Pool != nil {
-		Pool.Close()
+	if OperationalPool != nil {
+		OperationalPool.Close()
+	}
+	if DashboardPool != nil {
+		DashboardPool.Close()
 	}
 }
