@@ -12,13 +12,7 @@ import (
 )
 
 const getOccupancyByClinic = `-- name: GetOccupancyByClinic :many
-WITH clinic_doctors AS (
-    SELECT clinic_id, COUNT(*) AS doctor_count
-    FROM doctors
-    WHERE active = true
-    GROUP BY clinic_id
-),
-booked AS (
+WITH booked AS (
     SELECT a.clinic_id, COUNT(*) AS booked_slots
     FROM appointments a
     WHERE a.date BETWEEN $3::date AND $4::date
@@ -27,14 +21,13 @@ booked AS (
 SELECT
     c.id AS clinic_id,
     c.name AS clinic_name,
-    (c.slots_per_day * $1::integer * COALESCE(cd.doctor_count, 0))::bigint AS available_slots,
+    (c.slots_per_day * $1::integer)::bigint AS available_slots,
     COALESCE(b.booked_slots, 0)::bigint AS booked_slots,
     CASE
-        WHEN (c.slots_per_day * $1::integer * COALESCE(cd.doctor_count, 0)) = 0 THEN 0::numeric
-        ELSE ROUND(COALESCE(b.booked_slots, 0)::numeric / (c.slots_per_day * $1::integer * COALESCE(cd.doctor_count, 0)) * 100, 1)
+        WHEN c.slots_per_day * $1::integer = 0 THEN 0::numeric
+        ELSE ROUND(COALESCE(b.booked_slots, 0)::numeric / (c.slots_per_day * $1::integer) * 100, 1)
     END AS occupancy_rate
 FROM clinics c
-LEFT JOIN clinic_doctors cd ON cd.clinic_id = c.id
 LEFT JOIN booked b ON b.clinic_id = c.id
 WHERE c.active = true
   AND ($2::varchar IS NULL OR c.id = $2)
@@ -56,8 +49,7 @@ type GetOccupancyByClinicRow struct {
 	OccupancyRate  interface{} `json:"occupancy_rate"`
 }
 
-// M2: Tasa de ocupación por clínica.
-// Recibe días_en_rango precalculado desde Go para evitar aritmética de fechas en sqlc.
+// M2: Ocupación por clínica. slots_per_day es la capacidad total de la clínica.
 func (q *Queries) GetOccupancyByClinic(ctx context.Context, arg GetOccupancyByClinicParams) ([]GetOccupancyByClinicRow, error) {
 	rows, err := q.db.Query(ctx, getOccupancyByClinic,
 		arg.TotalDays,
@@ -73,6 +65,102 @@ func (q *Queries) GetOccupancyByClinic(ctx context.Context, arg GetOccupancyByCl
 	for rows.Next() {
 		var i GetOccupancyByClinicRow
 		if err := rows.Scan(
+			&i.ClinicID,
+			&i.ClinicName,
+			&i.AvailableSlots,
+			&i.BookedSlots,
+			&i.OccupancyRate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getOccupancyByDoctor = `-- name: GetOccupancyByDoctor :many
+WITH doctor_slots AS (
+    SELECT
+        d.id AS doctor_id,
+        d.name AS doctor_name,
+        d.specialty::text AS specialty,
+        c.id AS clinic_id,
+        c.name AS clinic_name,
+        CASE
+            WHEN COUNT(*) OVER (PARTITION BY d.clinic_id) = 0 THEN 0
+            ELSE c.slots_per_day / COUNT(*) OVER (PARTITION BY d.clinic_id)
+        END AS slots_per_doctor
+    FROM doctors d
+    JOIN clinics c ON c.id = d.clinic_id
+    WHERE d.active = true
+),
+booked AS (
+    SELECT a.doctor_id, COUNT(*) AS booked_slots
+    FROM appointments a
+    WHERE a.date BETWEEN $4::date AND $5::date
+    GROUP BY a.doctor_id
+)
+SELECT
+    ds.doctor_id,
+    ds.doctor_name,
+    ds.specialty,
+    ds.clinic_id,
+    ds.clinic_name,
+    (ds.slots_per_doctor * $1::integer)::bigint AS available_slots,
+    COALESCE(b.booked_slots, 0)::bigint AS booked_slots,
+    CASE
+        WHEN ds.slots_per_doctor * $1::integer = 0 THEN 0::numeric
+        ELSE ROUND(COALESCE(b.booked_slots, 0)::numeric / (ds.slots_per_doctor * $1::integer) * 100, 1)
+    END AS occupancy_rate
+FROM doctor_slots ds
+LEFT JOIN booked b ON b.doctor_id = ds.doctor_id
+WHERE ($2::varchar IS NULL OR ds.clinic_id = $2)
+  AND ($3::specialty IS NULL OR ds.specialty::specialty = $3)
+ORDER BY occupancy_rate DESC
+`
+
+type GetOccupancyByDoctorParams struct {
+	TotalDays int32         `json:"total_days"`
+	ClinicID  pgtype.Text   `json:"clinic_id"`
+	Specialty NullSpecialty `json:"specialty"`
+	DateFrom  pgtype.Date   `json:"date_from"`
+	DateTo    pgtype.Date   `json:"date_to"`
+}
+
+type GetOccupancyByDoctorRow struct {
+	DoctorID       string      `json:"doctor_id"`
+	DoctorName     string      `json:"doctor_name"`
+	Specialty      string      `json:"specialty"`
+	ClinicID       string      `json:"clinic_id"`
+	ClinicName     string      `json:"clinic_name"`
+	AvailableSlots int64       `json:"available_slots"`
+	BookedSlots    int64       `json:"booked_slots"`
+	OccupancyRate  interface{} `json:"occupancy_rate"`
+}
+
+// M2: Ocupación por doctora. Cada doctora recibe slots_per_day / doctoras_activas de su clínica.
+func (q *Queries) GetOccupancyByDoctor(ctx context.Context, arg GetOccupancyByDoctorParams) ([]GetOccupancyByDoctorRow, error) {
+	rows, err := q.db.Query(ctx, getOccupancyByDoctor,
+		arg.TotalDays,
+		arg.ClinicID,
+		arg.Specialty,
+		arg.DateFrom,
+		arg.DateTo,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetOccupancyByDoctorRow
+	for rows.Next() {
+		var i GetOccupancyByDoctorRow
+		if err := rows.Scan(
+			&i.DoctorID,
+			&i.DoctorName,
+			&i.Specialty,
 			&i.ClinicID,
 			&i.ClinicName,
 			&i.AvailableSlots,
