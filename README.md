@@ -686,7 +686,7 @@ graph TB
     style DP fill:#f59e0b,stroke:#d97706,color:#000
 ```
 
-### Arquitectura proyectada (30 clinicas) — persistencia polyglot
+### Arquitectura proyectada (30 clinicas) — multi-model database
 
 A 5 clínicas, MongoDB como base de datos única para el EHR funciona. A 30 clínicas, los `$lookup` encadenados entre citas, pagos, pacientes y doctoras degradan el rendimiento y el aggregation pipeline se vuelve inmantenible. La propuesta no es reemplazar MongoDB — es usar cada motor donde es fuerte:
 
@@ -763,13 +763,13 @@ graph TB
     style S3D fill:#64748b,stroke:#475569,color:#fff
 ```
 
-#### Migración gradual: de MongoDB-only a polyglot
+#### Migración gradual: de MongoDB-only a multi-model
 
 No se migra todo de golpe. Los microservicios ya están separados por dominio — se migran uno por uno, empezando por los que más sufren con `$lookup`:
 
 ```mermaid
 gantt
-    title Migración a persistencia polyglot
+    title Migración a multi-model database
     dateFormat YYYY-MM-DD
     axisFormat %Y-%m
 
@@ -926,7 +926,7 @@ El panel ya está diseñado para escalar — Go en Lambda, PostgreSQL con querie
 
 ### 5. Sincronización de datos entre sistemas
 
-Con la migración polyglot, los servicios de citas y pagos **escriben directo en PostgreSQL** — no hay duplicación ni sync para esos datos. La sincronización solo es necesaria entre MongoDB (expedientes) y PostgreSQL (datos transaccionales) cuando un flujo clínico necesita cruzar ambos mundos:
+Con la migración a multi-model, los servicios de citas y pagos **escriben directo en PostgreSQL** — no hay duplicación ni sync para esos datos. La sincronización solo es necesaria entre MongoDB (expedientes) y PostgreSQL (datos transaccionales) cuando un flujo clínico necesita cruzar ambos mundos:
 
 ```mermaid
 graph LR
@@ -977,27 +977,45 @@ graph LR
 
 ### 7. Infraestructura y costos
 
+Dos escenarios a 30 clínicas: escalar el stack actual (todo en MongoDB) vs la migración propuesta (MongoDB para expedientes + PostgreSQL para datos transaccionales).
+
+#### Escenario A: escalar todo en MongoDB (sin cambios de arquitectura)
+
+| Componente | 5 clínicas | 30 clínicas |
+|------------|-----------|-------------|
+| MongoDB Atlas (todo: expedientes + citas + pagos + catálogos) | M10 ($60) | M30 + sharding ($450) |
+| ECS Fargate | 2 tasks ($80) | 2-10 tasks auto-scale ($400) |
+| Lambda (panel) | ~$0.15 | ~$2 |
+| CloudFront + S3 | $5 | $15 |
+| API Gateway | $10 | $50 |
+| CloudWatch | $15 | $80 |
+| **Total** | **~$350** | **~$1,000** |
+
+**Problema:** MongoDB necesita un M30 con sharding porque almacena todo — expedientes, citas, pagos, catálogos. Los `$lookup` entre colecciones siguen degradándose. Se paga más hardware para compensar ineficiencia del modelo de datos.
+
+#### Escenario B: MongoDB para expedientes + PostgreSQL para datos transaccionales (propuesto)
+
+| Componente | 5 clínicas | 30 clínicas |
+|------------|-----------|-------------|
+| MongoDB Atlas (solo expedientes y notas médicas) | M10 ($60) | M20 ($200) |
+| Aurora PostgreSQL (citas, pagos, scheduling, panel, auth) | Serverless v2 ($30) | Serverless v2 + read replica ($120) |
+| ECS Fargate | 2 tasks ($80) | 2-8 tasks auto-scale ($350) |
+| Lambda (panel + notificaciones) | ~$0.15 | ~$17 |
+| ElastiCache Redis | — | t3.micro ($15) |
+| CloudFront + S3 | $5 | $15 |
+| API Gateway + WAF | $10 | $60 |
+| CloudWatch + X-Ray | $15 | $50 |
+| **Total** | **~$350** | **~$827** |
+
 ```mermaid
 xychart-beta horizontal
-    title "Costo mensual infra AWS (USD)"
-    x-axis ["5 clinicas", "15 clinicas", "30 Mongo-only", "30 polyglot"]
-    y-axis "USD/mes" 0 --> 2500
-    bar [350, 650, 2200, 827]
+    title "Costo mensual a 30 clinicas (USD)"
+    x-axis ["Todo en MongoDB", "Mongo + PostgreSQL"]
+    y-axis "USD/mes" 0 --> 1200
+    bar [1000, 827]
 ```
 
-| Componente | 5 clínicas | 30 clínicas (polyglot) | Optimización |
-|------------|-----------|------------------------|-------------|
-| MongoDB Atlas (solo expedientes) | M10 ($60) | M20 ($200) | Con polyglot, MongoDB almacena menos datos (solo expedientes), baja de M30 a M20. Reservar 1 año (-40%). |
-| Aurora PostgreSQL (citas, pagos, panel) | Serverless v2 ($30) | Serverless v2 + replica ($120) | Absorbe datos que salen de MongoDB. Más carga, pero SQL es más eficiente para estos datos. |
-| ECS Fargate | 2 tasks ($80) | 2-8 tasks auto-scale ($350) | Fargate Spot para tasks no-críticos (-70%) |
-| Lambda (panel + notificaciones) | ~$0.15 | ~$17 | — irrelevante vs otros costos |
-| ElastiCache Redis | — | t3.micro ($15) | — |
-| CloudFront + S3 | $5 | $15 | — |
-| API Gateway + WAF | $10 | $60 | — |
-| CloudWatch + X-Ray | $15 | $50 | Filtrar logs, retención 30 días |
-| **Total** | **~$350** | **~$827** | **~$650** |
-
-> Con persistencia polyglot, el costo a 30 clínicas baja de ~$2,200 (escalar MongoDB para todo) a ~$827 — porque PostgreSQL maneja los datos transaccionales de forma más eficiente y MongoDB se dimensiona solo para expedientes clínicos.
+**Ventaja:** MongoDB baja de M30 ($450) a M20 ($200) porque solo almacena expedientes — datos que sí se benefician de schema flexible. Los datos transaccionales pasan a PostgreSQL donde son más baratos de consultar (JOINs nativos vs `$lookup`), y el ahorro en MongoDB compensa el costo de Aurora. Además, se agrega Redis y X-Ray que el escenario A no tiene.
 
 ### 8. Productividad del equipo: IA generativa como multiplicador
 
