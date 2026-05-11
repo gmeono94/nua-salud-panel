@@ -1,19 +1,29 @@
 // Barra de filtros globales sticky
 import { useFilters } from '../../hooks/useFilters'
 import SelectFilter from './SelectFilter'
+import MultiSelectFilter from './MultiSelectFilter'
 import DateRangePicker from './DateRangePicker'
 
 export default function GlobalFilters() {
   const { filters, setFilter, clinics, doctors, specialties } = useFilters()
 
+  // Convertir entre string separado por comas y array para el multi-select
+  const selectedClinicIds = filters.clinic_id
+    ? filters.clinic_id.split(',')
+    : []
+
+  const handleClinicChange = (ids: string[]) => {
+    setFilter('clinic_id', ids.join(','))
+  }
+
   return (
     <div className="sticky top-0 z-30 bg-[#f8f9fc]/80 backdrop-blur-lg border-b border-gray-100 py-4">
       <div className="max-w-[1400px] mx-auto px-6 flex flex-wrap items-end gap-4">
-        {/* Clínica */}
-        <SelectFilter
+        {/* Clínica — selección múltiple */}
+        <MultiSelectFilter
           label="Clínica"
-          value={filters.clinic_id}
-          onChange={(v) => setFilter('clinic_id', v)}
+          value={selectedClinicIds}
+          onChange={handleClinicChange}
           options={clinics.map((c) => ({ value: c.id, label: c.name }))}
           placeholder="Todas las clínicas"
         />

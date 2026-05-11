@@ -28,7 +28,7 @@ FROM appointments a
 JOIN doctors d ON d.id = a.doctor_id
 WHERE a.date BETWEEN $2::date AND $3::date
   AND a.status != 'agendada'
-  AND ($4::varchar IS NULL OR a.clinic_id = $4)
+  AND ($4::varchar IS NULL OR a.clinic_id = ANY(string_to_array($4::varchar, ',')))
   AND ($5::varchar IS NULL OR a.doctor_id = $5)
   AND ($6::specialty IS NULL OR d.specialty = $6)
 GROUP BY period
@@ -97,7 +97,7 @@ FROM appointments a
 JOIN doctors d ON d.id = a.doctor_id
 WHERE a.date BETWEEN $1::date AND $2::date
   AND a.status != 'agendada'
-  AND ($3::varchar IS NULL OR a.clinic_id = $3)
+  AND ($3::varchar IS NULL OR a.clinic_id = ANY(string_to_array($3::varchar, ',')))
   AND ($4::varchar IS NULL OR a.doctor_id = $4)
   AND ($5::specialty IS NULL OR d.specialty = $5)
 `

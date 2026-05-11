@@ -14,7 +14,7 @@ SELECT
 FROM appointments a
 JOIN doctors d ON d.id = a.doctor_id
 WHERE a.date BETWEEN @date_from::date AND @date_to::date
-  AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = sqlc.narg('clinic_id'))
+  AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = ANY(string_to_array(sqlc.narg('clinic_id')::varchar, ',')))
   AND (sqlc.narg('doctor_id')::varchar IS NULL OR a.doctor_id = sqlc.narg('doctor_id'))
   AND (sqlc.narg('specialty')::specialty IS NULL OR d.specialty = sqlc.narg('specialty'))
 GROUP BY period
@@ -30,6 +30,6 @@ SELECT
 FROM appointments a
 JOIN doctors d ON d.id = a.doctor_id
 WHERE a.date BETWEEN @date_from::date AND @date_to::date
-  AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = sqlc.narg('clinic_id'))
+  AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = ANY(string_to_array(sqlc.narg('clinic_id')::varchar, ',')))
   AND (sqlc.narg('doctor_id')::varchar IS NULL OR a.doctor_id = sqlc.narg('doctor_id'))
   AND (sqlc.narg('specialty')::specialty IS NULL OR d.specialty = sqlc.narg('specialty'));

@@ -23,7 +23,7 @@ JOIN clinics c ON c.id = a.clinic_id
 JOIN services s ON s.id = a.service_id
 WHERE p.payment_date BETWEEN $1::date AND $2::date
   AND p.status = 'completado'
-  AND ($3::varchar IS NULL OR a.clinic_id = $3)
+  AND ($3::varchar IS NULL OR a.clinic_id = ANY(string_to_array($3::varchar, ',')))
   AND ($4::specialty IS NULL OR s.specialty = $4)
 GROUP BY c.id, c.name, s.specialty
 ORDER BY c.name, s.specialty
@@ -82,7 +82,7 @@ JOIN appointments a ON a.id = p.appointment_id
 JOIN services s ON s.id = a.service_id
 WHERE p.payment_date BETWEEN $1::date AND $2::date
   AND p.status = 'completado'
-  AND ($3::varchar IS NULL OR a.clinic_id = $3)
+  AND ($3::varchar IS NULL OR a.clinic_id = ANY(string_to_array($3::varchar, ',')))
   AND ($4::specialty IS NULL OR s.specialty = $4)
 `
 

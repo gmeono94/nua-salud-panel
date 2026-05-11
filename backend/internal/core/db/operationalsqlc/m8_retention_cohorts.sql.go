@@ -18,7 +18,7 @@ WITH first_visit AS (
         date_trunc('month', MIN(a.date))::date AS cohort_month
     FROM appointments a
     WHERE a.status = 'completada'
-      AND ($3::varchar IS NULL OR a.clinic_id = $3)
+      AND ($3::varchar IS NULL OR a.clinic_id = ANY(string_to_array($3::varchar, ',')))
     GROUP BY a.patient_id
 )
 SELECT
@@ -70,7 +70,7 @@ WITH first_visit AS (
         date_trunc('month', MIN(a.date))::date AS cohort_month
     FROM appointments a
     WHERE a.status = 'completada'
-      AND ($3::varchar IS NULL OR a.clinic_id = $3)
+      AND ($3::varchar IS NULL OR a.clinic_id = ANY(string_to_array($3::varchar, ',')))
     GROUP BY a.patient_id
 ),
 cohort_activity AS (
@@ -81,7 +81,7 @@ cohort_activity AS (
     FROM first_visit fv
     JOIN appointments a ON a.patient_id = fv.patient_id
     WHERE a.status = 'completada'
-      AND ($3::varchar IS NULL OR a.clinic_id = $3)
+      AND ($3::varchar IS NULL OR a.clinic_id = ANY(string_to_array($3::varchar, ',')))
 )
 SELECT
     to_char(ca.cohort_month, 'YYYY-MM') AS cohort,

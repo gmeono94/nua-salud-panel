@@ -10,7 +10,7 @@ JOIN services s ON s.id = a.service_id
 WHERE a.status = 'completada'
   AND p.status = 'completado'
   AND p.payment_date BETWEEN @date_from::date AND @date_to::date
-  AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = sqlc.narg('clinic_id'))
+  AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = ANY(string_to_array(sqlc.narg('clinic_id')::varchar, ',')))
   AND (sqlc.narg('specialty')::specialty IS NULL OR s.specialty = sqlc.narg('specialty'));
 
 -- name: GetAvgTicketByClinic :many
@@ -27,7 +27,7 @@ JOIN services s ON s.id = a.service_id
 WHERE a.status = 'completada'
   AND p.status = 'completado'
   AND p.payment_date BETWEEN @date_from::date AND @date_to::date
-  AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = sqlc.narg('clinic_id'))
+  AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = ANY(string_to_array(sqlc.narg('clinic_id')::varchar, ',')))
   AND (sqlc.narg('specialty')::specialty IS NULL OR s.specialty = sqlc.narg('specialty'))
 GROUP BY c.id, c.name
 ORDER BY avg_ticket DESC;
@@ -44,7 +44,7 @@ JOIN services s ON s.id = a.service_id
 WHERE a.status = 'completada'
   AND p.status = 'completado'
   AND p.payment_date BETWEEN @date_from::date AND @date_to::date
-  AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = sqlc.narg('clinic_id'))
+  AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = ANY(string_to_array(sqlc.narg('clinic_id')::varchar, ',')))
   AND (sqlc.narg('specialty')::specialty IS NULL OR s.specialty = sqlc.narg('specialty'))
 GROUP BY s.specialty
 ORDER BY avg_ticket DESC;

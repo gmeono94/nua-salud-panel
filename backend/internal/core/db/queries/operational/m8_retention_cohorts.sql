@@ -7,7 +7,7 @@ WITH first_visit AS (
         date_trunc('month', MIN(a.date))::date AS cohort_month
     FROM appointments a
     WHERE a.status = 'completada'
-      AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = sqlc.narg('clinic_id'))
+      AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = ANY(string_to_array(sqlc.narg('clinic_id')::varchar, ',')))
     GROUP BY a.patient_id
 ),
 cohort_activity AS (
@@ -18,7 +18,7 @@ cohort_activity AS (
     FROM first_visit fv
     JOIN appointments a ON a.patient_id = fv.patient_id
     WHERE a.status = 'completada'
-      AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = sqlc.narg('clinic_id'))
+      AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = ANY(string_to_array(sqlc.narg('clinic_id')::varchar, ',')))
 )
 SELECT
     to_char(ca.cohort_month, 'YYYY-MM') AS cohort,
@@ -39,7 +39,7 @@ WITH first_visit AS (
         date_trunc('month', MIN(a.date))::date AS cohort_month
     FROM appointments a
     WHERE a.status = 'completada'
-      AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = sqlc.narg('clinic_id'))
+      AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = ANY(string_to_array(sqlc.narg('clinic_id')::varchar, ',')))
     GROUP BY a.patient_id
 )
 SELECT
