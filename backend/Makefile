@@ -65,6 +65,11 @@ seed-users:
 seed:
 	go run ./cmd/seed-operational/main.go
 
+# Seed de API keys (identidad de clientes)
+.PHONY: seed-apikeys
+seed-apikeys:
+	go run ./cmd/seed-apikeys/main.go
+
 # Ejecutar tests
 .PHONY: test
 test:

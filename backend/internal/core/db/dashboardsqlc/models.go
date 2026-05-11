@@ -103,6 +103,15 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 	return string(ns.UserRole), nil
 }
 
+type ApiKey struct {
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	KeyHash   string             `json:"key_hash"`
+	Active    bool               `json:"active"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	LastUsed  pgtype.Timestamptz `json:"last_used"`
+}
+
 type AuditLog struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserID    pgtype.UUID        `json:"user_id"`
