@@ -1,4 +1,4 @@
-CREATE TYPE appointment_status AS ENUM ('completada', 'cancelada', 'no_show');
+CREATE TYPE appointment_status AS ENUM ('completada', 'cancelada', 'no_show', 'agendada');
 CREATE TYPE specialty AS ENUM ('ginecologia', 'obstetricia', 'menopausia');
 CREATE TYPE payment_method AS ENUM ('TC', 'TD', 'Efectivo');
 CREATE TYPE payment_status AS ENUM ('completado', 'pendiente', 'reembolsado');
