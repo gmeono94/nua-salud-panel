@@ -1,0 +1,6 @@
+id,nombre,activa,slots_por_dia
+C001,Polanco,true,32
+C002,Santa Fe,true,48
+C003,Roma,true,48
+C004,Coyoacan,true,32
+C005,Insurgentes,true,96

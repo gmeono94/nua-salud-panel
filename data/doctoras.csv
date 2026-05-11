@@ -1,0 +1,11 @@
+id,nombre,especialidad,clinica_id,activa
+D001,Dra. Ana Lopez,menopausia,C001,true
+D002,Dra. Maria Garcia,ginecologia,C002,true
+D003,Dra. Sofia Martinez,obstetricia,C003,true
+D004,Dra. Carmen Ruiz,obstetricia,C004,true
+D005,Dra. Laura Hernandez,ginecologia,C005,true
+D006,Dra. Patricia Diaz,ginecologia,C001,true
+D007,Dra. Isabel Morales,obstetricia,C002,true
+D008,Dra. Andrea Vargas,ginecologia,C003,true
+D009,Dra. Daniela Castro,menopausia,C004,true
+D010,Dra. Veronica Romero,ginecologia,C005,true

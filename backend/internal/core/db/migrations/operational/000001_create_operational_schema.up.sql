@@ -50,3 +50,14 @@ CREATE TABLE payments (
     status         payment_status NOT NULL,
     payment_date   DATE           NOT NULL
 );
+
+CREATE INDEX idx_appointments_clinic_date ON appointments(clinic_id, date);
+CREATE INDEX idx_appointments_doctor_status ON appointments(doctor_id, status);
+CREATE INDEX idx_appointments_patient ON appointments(patient_id);
+CREATE INDEX idx_appointments_date ON appointments(date);
+CREATE INDEX idx_appointments_status ON appointments(status);
+CREATE INDEX idx_payments_date ON payments(payment_date);
+CREATE INDEX idx_payments_appointment ON payments(appointment_id);
+CREATE INDEX idx_doctors_clinic ON doctors(clinic_id);
+CREATE INDEX idx_doctors_specialty ON doctors(specialty);
+CREATE INDEX idx_services_specialty ON services(specialty);
