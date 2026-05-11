@@ -208,6 +208,35 @@ Un ranking es inherentemente tabular — nombre, especialidad, clínica, total d
 
 **Endpoint:** `GET /api/v1/metrics/top-doctors`
 
+### M6 — Tasa de cancelación / no-show
+**Visualización:** Línea de tendencia temporal con porcentaje + KPIs de desglose.
+
+Se añade porque M1 muestra números absolutos pero no responde "¿está mejorando o empeorando nuestra tasa de pérdida?". La línea de tendencia con porcentaje normaliza el dato contra el volumen total — un mes con 50 cancelaciones de 200 citas (25%) es peor que uno con 60 de 300 (20%), pero en M1 parecería al revés. Las clínicas de salud femenina tienen tasas de cancelación entre 20-40%; poder rastrear la tendencia por clínica y doctora permite intervenir con recordatorios o políticas de reagendamiento.
+
+**Cálculo:** (canceladas + no-show) / total de citas resueltas × 100. Se excluyen citas con status `agendada` del denominador para no diluir la tasa con citas pendientes.
+
+**Endpoint:** `GET /api/v1/metrics/cancellation-rate`
+
+### M7 — Ticket promedio
+**Visualización:** KPI principal + barras horizontales por clínica + cards por especialidad.
+
+Se añade porque el ingreso total (M4) no distingue si crece por volumen o por valor. El ticket promedio responde "¿cuánto genera cada consulta?" y permite detectar diferencias de pricing entre clínicas o especialidades. Para un CTO evaluando eficiencia operativa, el ticket promedio es la métrica que conecta volumen clínico con resultado financiero. Si una clínica tiene alta ocupación pero bajo ticket, hay un problema de mix de servicios.
+
+**Cálculo:** Promedio de `payments.amount` para citas completadas con pagos confirmados. Filtra por `payment_date`, consistente con M4.
+
+**Endpoint:** `GET /api/v1/metrics/avg-ticket`
+
+### M8 — Cohortes de retención
+**Visualización:** Tabla heatmap con intensidad de color proporcional al porcentaje de retención.
+
+Se añade porque ninguna de las métricas originales responde "¿las pacientes regresan?". La retención es la métrica más importante para un negocio de salud recurrente — una paciente que vuelve cada 3-6 meses tiene un LTV 5-10x mayor que una que solo viene una vez. La tabla de cohortes muestra por mes de primera visita qué porcentaje de pacientes regresó en meses posteriores. Un patrón saludable es retención >50% en mes +1; si cae abruptamente, indica problemas de experiencia o seguimiento.
+
+**Cálculo:** Cada cohorte = mes de la primera cita completada del paciente (global, no por rango de filtro). Para cada cohorte se cuenta cuántos pacientes tuvieron al menos una cita en meses +0, +1, +2, etc. El filtro de fecha controla qué cohortes se muestran, no qué actividad se incluye.
+
+**Por qué no línea o barras:** Las cohortes son bidimensionales (cohorte × tiempo). La tabla heatmap es el estándar de la industria porque permite comparar filas (¿mejora la retención con el tiempo?) y columnas (¿cuándo se pierde más gente?) simultáneamente.
+
+**Endpoint:** `GET /api/v1/metrics/retention-cohorts`
+
 ## Decisiones de arquitectura
 
 ### Base de datos: PostgreSQL
@@ -378,6 +407,9 @@ Las visualizaciones se eligieron siguiendo un principio: **cada gráfica debe re
 | M3 | ¿Dependemos de recurrentes o captamos nuevas? | Donut + tabla temporal | Proporción de un vistazo + evolución temporal |
 | M4 | ¿Qué clínica genera más? ¿De qué servicio? | Barras agrupadas + KPI | Compara clínicas y desglosa por servicio |
 | M5 | ¿Quiénes son las doctoras más productivas? | Tabla rankeada + barras inline | Ranking con contexto (nombre, especialidad, clínica) |
+| M6 | ¿Cuántas citas se pierden y cuál es la tendencia? | Línea temporal + KPI | Tendencia temporal revela si el problema mejora o empeora |
+| M7 | ¿Cuánto vale en promedio cada cita? | KPI + barras por clínica/especialidad | Identifica clínicas y especialidades de mayor valor |
+| M8 | ¿Las pacientes regresan después de su primera cita? | Heatmap de cohortes | Patrón estándar de retención, revela caída y estabilización |
 
 ## Variables de entorno
 
