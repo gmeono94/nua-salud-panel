@@ -21,14 +21,19 @@ const MEDAL_STYLES: Record<number, { bg: string; text: string; ring: string }> =
 // Iconos de medalla (1ro, 2do, 3ro)
 const MEDAL_ICONS = ['🥇', '🥈', '🥉']
 
-export default function TopDoctorsChart() {
+interface Props {
+  mini?: boolean
+}
+
+export default function TopDoctorsChart({ mini }: Props) {
   const { data, loading, error } = useMetric<TopDoctorsResponse>(
     fetchTopDoctors,
     { includeFilters: ['clinic_id', 'specialty', 'dates'] }
   )
 
-  const doctors = data?.data || []
-  const maxAppointments = doctors.length > 0 ? doctors[0].completed_appointments : 1
+  const allDoctors = data?.data || []
+  const doctors = mini ? allDoctors.slice(0, 5) : allDoctors
+  const maxAppointments = allDoctors.length > 0 ? allDoctors[0].completed_appointments : 1
 
   return (
     <ChartCard title="Top Doctoras" delay={400} loading={loading} error={error}>

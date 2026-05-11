@@ -78,7 +78,11 @@ function BarTooltip({ active, payload }: { active?: boolean; payload?: Array<{ v
   )
 }
 
-export default function OccupancyChart() {
+interface Props {
+  mini?: boolean
+}
+
+export default function OccupancyChart({ mini }: Props) {
   const [view, setView] = useState<OccupancyView>('clinic')
 
   // Fetcher que incluye la vista seleccionada
@@ -111,10 +115,11 @@ export default function OccupancyChart() {
       loading={loading}
       error={error}
       actions={
+        !mini ? (
         <div className="flex bg-gray-100 rounded-lg p-0.5">
           <button
             onClick={() => setView('clinic')}
-            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+            className={`px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
               view === 'clinic'
                 ? 'bg-white text-violet-700 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
@@ -124,7 +129,7 @@ export default function OccupancyChart() {
           </button>
           <button
             onClick={() => setView('doctor')}
-            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+            className={`px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
               view === 'doctor'
                 ? 'bg-white text-violet-700 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
@@ -133,6 +138,7 @@ export default function OccupancyChart() {
             Por Doctora
           </button>
         </div>
+        ) : undefined
       }
     >
       {/* Vista por clínica: barras horizontales */}

@@ -81,6 +81,9 @@ import type {
   PatientsResponse,
   RevenueResponse,
   TopDoctorsResponse,
+  CancellationRateResponse,
+  AvgTicketResponse,
+  RetentionCohortsResponse,
 } from '../types/api'
 
 export const fetchAppointments = (params: Record<string, string>) =>
@@ -97,3 +100,12 @@ export const fetchRevenue = (params: Record<string, string>) =>
 
 export const fetchTopDoctors = (params: Record<string, string>) =>
   apiFetch<TopDoctorsResponse>('/metrics/top-doctors', params)
+
+export const fetchCancellationRate = (params: Record<string, string>) =>
+  apiFetch<CancellationRateResponse>('/metrics/cancellation-rate', params)
+
+export const fetchAvgTicket = (params: Record<string, string>) =>
+  apiFetch<AvgTicketResponse>('/metrics/avg-ticket', params)
+
+export const fetchRetentionCohorts = (params: Record<string, string>) =>
+  apiFetch<RetentionCohortsResponse>('/metrics/retention-cohorts', params)

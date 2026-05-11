@@ -59,7 +59,11 @@ function RevenueTooltip({ active, payload, label }: { active?: boolean; payload?
   )
 }
 
-export default function RevenueChart() {
+interface Props {
+  mini?: boolean
+}
+
+export default function RevenueChart({ mini }: Props) {
   const { data, loading, error } = useMetric<RevenueResponse>(fetchRevenue, {
     includeFilters: ['clinic_id', 'specialty', 'dates'],
   })
@@ -97,7 +101,7 @@ export default function RevenueChart() {
   return (
     <div className="space-y-4">
       {/* KPI de ingreso total */}
-      {data && (
+      {!mini && data && (
         <KpiCard
           label="Ingreso total"
           value={formatMXN(data.total_revenue)}

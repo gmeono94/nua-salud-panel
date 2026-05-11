@@ -36,7 +36,11 @@ function MiniTooltip({ active, payload, label }: { active?: boolean; payload?: A
   )
 }
 
-export default function PatientsChart() {
+interface Props {
+  mini?: boolean
+}
+
+export default function PatientsChart({ mini }: Props) {
   const { data, loading, error } = useMetric<PatientsResponse>(fetchPatients, {
     includeFilters: ['clinic_id', 'dates'],
   })
@@ -85,23 +89,25 @@ export default function PatientsChart() {
           </div>
 
           {/* Leyenda */}
-          <div className="flex items-center justify-center gap-6">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-violet-600" />
-              <span className="text-sm text-gray-600">
-                Nuevas ({data.summary.new_patients})
-              </span>
+          {!mini && (
+            <div className="flex items-center justify-center gap-6">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-violet-600" />
+                <span className="text-sm text-gray-600">
+                  Nuevas ({data.summary.new_patients})
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-indigo-600" />
+                <span className="text-sm text-gray-600">
+                  Recurrentes ({data.summary.returning_patients})
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-indigo-600" />
-              <span className="text-sm text-gray-600">
-                Recurrentes ({data.summary.returning_patients})
-              </span>
-            </div>
-          </div>
+          )}
 
           {/* Mini área: evolución mensual */}
-          {data.monthly && data.monthly.length > 0 && (
+          {!mini && data.monthly && data.monthly.length > 0 && (
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
                 Evolución mensual

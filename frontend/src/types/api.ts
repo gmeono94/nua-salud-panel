@@ -109,6 +109,72 @@ export interface TopDoctorsResponse {
   data: TopDoctor[]
 }
 
+// --- Tasa de cancelación (M6) ---
+
+export interface CancellationRatePeriod {
+  period: string
+  total: number
+  lost: number
+  lost_rate: number
+}
+
+export interface CancellationRateSummary {
+  total: number
+  cancelled: number
+  no_show: number
+  lost_rate: number
+}
+
+export interface CancellationRateResponse {
+  summary: CancellationRateSummary
+  data: CancellationRatePeriod[]
+}
+
+// --- Ticket promedio (M7) ---
+
+export interface AvgTicketSummary {
+  avg_ticket: number
+  paid_appointments: number
+  total_revenue: number
+}
+
+export interface AvgTicketByClinic {
+  clinic_id: string
+  clinic_name: string
+  avg_ticket: number
+  paid_appointments: number
+}
+
+export interface AvgTicketBySpecialty {
+  specialty: string
+  avg_ticket: number
+  paid_appointments: number
+}
+
+export interface AvgTicketResponse {
+  summary: AvgTicketSummary
+  by_clinic: AvgTicketByClinic[]
+  by_specialty: AvgTicketBySpecialty[]
+}
+
+// --- Cohortes de retención (M8) ---
+
+export interface CohortRetention {
+  cohort: string
+  month_offset: number
+  active_patients: number
+}
+
+export interface CohortSize {
+  cohort: string
+  cohort_size: number
+}
+
+export interface RetentionCohortsResponse {
+  cohorts: CohortRetention[]
+  sizes: CohortSize[]
+}
+
 // --- Filtros globales ---
 
 export interface GlobalFilterValues {

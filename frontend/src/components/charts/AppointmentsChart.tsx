@@ -65,7 +65,11 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   )
 }
 
-export default function AppointmentsChart() {
+interface Props {
+  mini?: boolean
+}
+
+export default function AppointmentsChart({ mini }: Props) {
   const { filters, setFilter } = useFilters()
   const { data, loading, error } = useMetric<AppointmentsResponse>(
     fetchAppointments,
@@ -82,7 +86,7 @@ export default function AppointmentsChart() {
   return (
     <div className="space-y-4">
       {/* KPIs superiores */}
-      {data?.summary && (
+      {!mini && data?.summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <KpiCard label="Total citas" value={data.summary.total} icon={<CalendarIcon />} color="text-violet-600" delay={0} />
           <KpiCard label="Completadas" value={data.summary.completed} icon={<CheckIcon />} color="text-emerald-600" delay={100} />
@@ -98,25 +102,27 @@ export default function AppointmentsChart() {
         loading={loading}
         error={error}
         actions={
-          <div className="flex bg-gray-100 rounded-lg p-0.5">
-            {groupOptions.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setFilter('group_by', opt.value)}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
-                  filters.group_by === opt.value
-                    ? 'bg-white text-violet-700 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          !mini ? (
+            <div className="flex bg-gray-100 rounded-lg p-0.5">
+              {groupOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setFilter('group_by', opt.value)}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                    filters.group_by === opt.value
+                      ? 'bg-white text-violet-700 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          ) : undefined
         }
       >
         {data?.data && data.data.length > 0 ? (
-          <ResponsiveContainer width="100%" height={320}>
+          <ResponsiveContainer width="100%" height={mini ? 160 : 320}>
             <AreaChart data={data.data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="gradCompleted" x1="0" y1="0" x2="0" y2="1">
