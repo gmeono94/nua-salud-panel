@@ -86,7 +86,7 @@ export default function AppointmentsChart({ mini }: Props) {
   return (
     <div className="space-y-4">
       {/* KPIs superiores */}
-      {!mini && data?.summary && (
+      {!mini && data?.summary && data.summary.total > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <KpiCard label="Total citas" value={data.summary.total} icon={<CalendarIcon />} color="text-violet-600" delay={0} />
           <KpiCard label="Completadas" value={data.summary.completed} icon={<CheckIcon />} color="text-emerald-600" delay={100} />

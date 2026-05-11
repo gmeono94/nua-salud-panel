@@ -101,7 +101,7 @@ export default function RevenueChart({ mini }: Props) {
   return (
     <div className="space-y-4">
       {/* KPI de ingreso total */}
-      {!mini && data && (
+      {!mini && data && data.total_revenue > 0 && (
         <KpiCard
           label="Ingreso total"
           value={formatMXN(data.total_revenue)}

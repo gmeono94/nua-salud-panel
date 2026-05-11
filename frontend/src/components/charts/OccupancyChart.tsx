@@ -100,12 +100,16 @@ export default function OccupancyChart({ mini }: Props) {
   // Separar datos según la vista
   const clinicData = useMemo(() => {
     if (!data || data.view !== 'clinic') return []
-    return data.data as OccupancyClinic[]
+    const clinics = data.data as OccupancyClinic[]
+    const hasBookings = clinics.some((c) => c.booked_slots > 0)
+    return hasBookings ? clinics : []
   }, [data])
 
   const doctorData = useMemo(() => {
     if (!data || data.view !== 'doctor') return []
-    return data.data as OccupancyDoctor[]
+    const doctors = data.data as OccupancyDoctor[]
+    const hasBookings = doctors.some((d) => d.booked_slots > 0)
+    return hasBookings ? doctors : []
   }, [data])
 
   return (

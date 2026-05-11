@@ -55,7 +55,13 @@ export default function PatientsChart({ mini }: Props) {
 
   return (
     <ChartCard title="Pacientes" delay={300} loading={loading} error={error}>
-      {data && (
+      {!data?.summary || data.summary.total_patients === 0 ? (
+        !loading && (
+          <div className="flex items-center justify-center py-16 text-sm text-gray-400">
+            Sin datos de pacientes
+          </div>
+        )
+      ) : (
         <div className="space-y-6">
           {/* Donut con total en el centro */}
           <div className="flex items-center justify-center">

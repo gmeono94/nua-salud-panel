@@ -17,7 +17,7 @@ export default function RetentionCohortsChart({ mini }: Props) {
 
   // Construir la matriz: filas = cohortes, columnas = offsets
   const { rows, maxOffset } = useMemo(() => {
-    if (!data) return { rows: [], maxOffset: 0 }
+    if (!data?.cohorts || !data?.sizes) return { rows: [], maxOffset: 0 }
 
     const sizeMap = new Map(data.sizes.map((s) => [s.cohort, s.cohort_size]))
     const matrix = new Map<string, Map<number, number>>()

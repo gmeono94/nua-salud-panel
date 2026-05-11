@@ -87,42 +87,42 @@ export default function KpiSummaryBar() {
     <div className="flex gap-3 overflow-x-auto pb-1">
       <KpiItem
         label="Ingreso total"
-        value={formatMXN(revenue.data?.total_revenue ?? 0)}
+        value={revenue.data?.total_revenue ? formatMXN(revenue.data.total_revenue) : '—'}
         color="text-emerald-600"
         to="/ingresos"
         loading={revenue.loading}
       />
       <KpiItem
         label="Total citas"
-        value={appointments.data?.summary?.total?.toLocaleString('es-MX') ?? '0'}
+        value={appointments.data?.summary?.total ? appointments.data.summary.total.toLocaleString('es-MX') : '—'}
         color="text-violet-600"
         to="/citas"
         loading={appointments.loading}
       />
       <KpiItem
         label="Ocupación"
-        value={`${avgOccupancy}%`}
+        value={avgOccupancy > 0 ? `${avgOccupancy}%` : '—'}
         color="text-indigo-600"
         to="/citas"
         loading={occupancy.loading}
       />
       <KpiItem
         label="Pacientes nuevas"
-        value={patients.data?.summary?.new_patients?.toLocaleString('es-MX') ?? '0'}
+        value={patients.data?.summary?.new_patients ? patients.data.summary.new_patients.toLocaleString('es-MX') : '—'}
         color="text-violet-600"
         to="/pacientes"
         loading={patients.loading}
       />
       <KpiItem
         label="Ticket promedio"
-        value={formatMXN(avgTicket.data?.summary?.avg_ticket ?? 0)}
+        value={avgTicket.data?.summary?.avg_ticket ? formatMXN(avgTicket.data.summary.avg_ticket) : '—'}
         color="text-emerald-600"
         to="/ingresos"
         loading={avgTicket.loading}
       />
       <KpiItem
         label="Tasa cancelación"
-        value={`${cancellation.data?.summary?.lost_rate ?? 0}%`}
+        value={cancellation.data?.summary?.total ? `${cancellation.data.summary.lost_rate}%` : '—'}
         color="text-rose-600"
         to="/citas"
         loading={cancellation.loading}
