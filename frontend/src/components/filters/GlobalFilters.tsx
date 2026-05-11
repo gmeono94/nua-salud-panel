@@ -1,0 +1,50 @@
+// Barra de filtros globales sticky
+import { useFilters } from '../../hooks/useFilters'
+import SelectFilter from './SelectFilter'
+import DateRangePicker from './DateRangePicker'
+
+export default function GlobalFilters() {
+  const { filters, setFilter, clinics, doctors, specialties } = useFilters()
+
+  return (
+    <div className="sticky top-0 z-30 bg-[#f8f9fc]/80 backdrop-blur-lg border-b border-gray-100 py-4">
+      <div className="max-w-[1400px] mx-auto px-6 flex flex-wrap items-end gap-4">
+        {/* Clínica */}
+        <SelectFilter
+          label="Clínica"
+          value={filters.clinic_id}
+          onChange={(v) => setFilter('clinic_id', v)}
+          options={clinics.map((c) => ({ value: c.id, label: c.name }))}
+          placeholder="Todas las clínicas"
+        />
+
+        {/* Doctora */}
+        <SelectFilter
+          label="Doctora"
+          value={filters.doctor_id}
+          onChange={(v) => setFilter('doctor_id', v)}
+          options={doctors.map((d) => ({
+            value: d.id,
+            label: `${d.name} — ${d.specialty}`,
+          }))}
+          placeholder="Todas las doctoras"
+        />
+
+        {/* Especialidad */}
+        <SelectFilter
+          label="Especialidad"
+          value={filters.specialty}
+          onChange={(v) => setFilter('specialty', v)}
+          options={specialties.map((s) => ({
+            value: s,
+            label: s.charAt(0).toUpperCase() + s.slice(1),
+          }))}
+          placeholder="Todas"
+        />
+
+        {/* Rango de fechas con presets */}
+        <DateRangePicker />
+      </div>
+    </div>
+  )
+}

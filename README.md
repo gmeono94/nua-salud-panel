@@ -1,5 +1,7 @@
 # Nua Salud — Panel Operativo
 
+> **Challenge técnico.** Dashboard operativo que consolida métricas clave de las clínicas (citas, ocupación, pacientes, ingresos y ranking de doctoras) con filtros dinámicos, autenticación JWT y control de acceso por rol.
+
 Panel de métricas operativas internas para las clínicas de Nua Salud. Consolida citas, ocupación, ingresos y rendimiento médico en un dashboard con filtros dinámicos, reemplazando el proceso manual de hojas de cálculo.
 
 ## Requisitos previos
@@ -23,8 +25,11 @@ cd nua-salud-panel
 cd backend
 cp .env.example .env              # Ajusta DATABASE_URL si es necesario
 docker compose up -d              # Levanta PostgreSQL
-make migrate-up                   # Aplica migraciones
-make seed                         # Carga datos ficticios desde el CSV
+make migrate-up                   # Migraciones DB operativa
+make dashboard-migrate-up         # Migraciones DB dashboard (usuarios, API keys)
+make seed                         # Carga datos operativos desde CSV
+make seed-users                   # Crea usuarios del dashboard
+make seed-apikeys                 # Crea API keys de identidad
 make dev                          # Inicia servidor con hot reload en http://localhost:3001
 ```
 
@@ -32,10 +37,20 @@ make dev                          # Inicia servidor con hot reload en http://loc
 
 ```bash
 cd frontend
-cp .env.example .env
-npm install
-npm run dev                       # Inicia app en http://localhost:5173
+cp .env.example .env              # Incluye VITE_API_KEY para desarrollo local
+bun install
+bun run dev                       # Inicia app en http://localhost:5173
 ```
+
+### Credenciales de prueba
+
+| Email | Contraseña | Rol |
+|---|---|---|
+| `admin@nuasalud.com` | `admin123` | admin — acceso completo |
+| `daniella@nuasalud.com` | `strategy123` | strategy — todas las métricas, sin gestión de usuarios |
+| `directora.roma@nuasalud.com` | `clinica123` | clinic_director |
+| `directora.polanco@nuasalud.com` | `clinica123` | clinic_director |
+| `directora.condesa@nuasalud.com` | `clinica123` | clinic_director |
 
 ## Estructura del proyecto
 
