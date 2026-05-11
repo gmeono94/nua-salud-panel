@@ -18,9 +18,9 @@ function ClickableSection({
   return (
     <div
       onClick={() => navigate(to)}
-      className="cursor-pointer group"
+      className="cursor-pointer group h-full"
     >
-      <div className="group-hover:ring-2 group-hover:ring-violet-200 rounded-2xl transition-all">
+      <div className="group-hover:ring-2 group-hover:ring-violet-200 rounded-2xl transition-all h-full [&>*]:h-full [&>*]:flex [&>*]:flex-col">
         {children}
       </div>
       <p className="text-xs text-violet-500 opacity-0 group-hover:opacity-100 transition-opacity mt-1 text-right pr-2">
@@ -33,16 +33,13 @@ function ClickableSection({
 export default function OverviewTab() {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 auto-rows-fr">
         <ClickableSection to="/citas">
           <AppointmentsChart mini />
         </ClickableSection>
         <ClickableSection to="/citas">
           <CancellationRateChart mini />
         </ClickableSection>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ClickableSection to="/pacientes">
           <PatientsChart mini />
         </ClickableSection>
