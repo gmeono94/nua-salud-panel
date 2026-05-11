@@ -266,7 +266,7 @@ graph LR
 
 ### Base de datos: PostgreSQL
 
-**Elegida porque** el panel operativo es un caso de uso analítico con relaciones claras entre entidades. Las 5 métricas requieren JOINs, agregaciones (SUM, COUNT, GROUP BY) y filtros compuestos — el terreno natural de SQL relacional.
+**Elegida porque** el panel operativo es un caso de uso analítico con relaciones claras entre entidades. Las 8 métricas (5 solicitadas + 3 añadidas) requieren JOINs, agregaciones (SUM, COUNT, GROUP BY) y filtros compuestos — el terreno natural de SQL relacional.
 
 #### ¿Por qué relacional y no otra familia?
 
@@ -292,11 +292,11 @@ Benchmark de referencia para queries tipo dashboard (JOINs + agregaciones + filt
 
 ```mermaid
 xychart-beta horizontal
-    title "Latencia promedio por tipo de query analítica (ms, menor es mejor)"
-    x-axis ["JOIN 3 tablas + GROUP BY", "Agregación con filtros compuestos", "Window functions + CTE", "Subquery correlacionada"]
-    y-axis "Latencia (ms)" 0 --> 250
+    title "Latencia por tipo de query (ms, menor es mejor)"
+    x-axis ["JOIN + GROUP BY", "Filtros compuestos", "Window + CTE", "Subquery"]
+    y-axis "ms" 0 --> 250
     bar "PostgreSQL" [12, 8, 15, 18]
-    bar "MongoDB ($lookup)" [85, 45, 180, 220]
+    bar "MongoDB" [85, 45, 180, 220]
 ```
 
 > **Nota:** MongoDB es la elección correcta para el EHR de Nua (documentos semi-estructurados). Pero para analytics con JOINs y agregaciones, PostgreSQL es 5-10x más rápido y el SQL es mantenible vs aggregation pipelines encadenados.
@@ -335,9 +335,9 @@ Datos de [AWS Lambda Power Tuning](https://github.com/alexcasalboni/aws-lambda-p
 
 ```mermaid
 xychart-beta horizontal
-    title "Cold start en Lambda con 256MB RAM (ms, menor es mejor)"
-    x-axis ["Go (compilado)", "Node.js 20 (V8 JIT)", "Python 3.12", "Java 21 (SnapStart)"]
-    y-axis "Tiempo (ms)" 0 --> 800
+    title "Cold start en Lambda 256MB (ms, menor es mejor)"
+    x-axis ["Go", "Node.js 20", "Python 3.12", "Java 21"]
+    y-axis "ms" 0 --> 800
     bar [35, 250, 180, 650]
 ```
 
@@ -347,8 +347,8 @@ Go arranca en ~35ms porque es un binario nativo sin runtime, VM ni interpretaci�
 
 ```mermaid
 xychart-beta horizontal
-    title "Memoria usada en reposo con endpoint REST básico (MB)"
-    x-axis ["Go + Gin", "Node.js + Express", "Node.js + Fastify", "Python + FastAPI"]
+    title "Memoria en reposo con endpoint REST (MB)"
+    x-axis ["Go + Gin", "Node + Express", "Node + Fastify", "Python + FastAPI"]
     y-axis "MB" 0 --> 120
     bar [24, 85, 65, 95]
 ```
@@ -361,8 +361,8 @@ Estimación para el panel de Nua: ~20 usuarios internos, ~500 requests/día en h
 
 ```mermaid
 xychart-beta horizontal
-    title "Costo mensual estimado en AWS Lambda (USD)"
-    x-axis ["Go (128MB)", "Node.js (256MB)", "EC2 t3.micro 24/7"]
+    title "Costo mensual en AWS Lambda (USD)"
+    x-axis ["Go 128MB", "Node.js 256MB", "EC2 t3.micro"]
     y-axis "USD/mes" 0 --> 12
     bar [0.15, 0.85, 8.50]
 ```
@@ -392,8 +392,8 @@ Las queries viven en archivos `.sql` puros — son la documentación y la implem
 
 ```mermaid
 xychart-beta horizontal
-    title "Operaciones/segundo en query SELECT con JOIN + filtros (mayor es mejor)"
-    x-axis ["sqlc (código generado)", "sqlx (reflection)", "GORM (ORM)", "database/sql (manual)"]
+    title "ops/s en SELECT con JOIN + filtros (mayor es mejor)"
+    x-axis ["sqlc", "sqlx", "GORM", "database/sql"]
     y-axis "ops/s" 0 --> 50000
     bar [45000, 38000, 22000, 44000]
 ```
@@ -476,8 +476,8 @@ Argon2id combina resistencia a ataques de GPU (variante "d") y side-channel (var
 
 ```mermaid
 xychart-beta horizontal
-    title "Tiempo para crackear password de 8 chars en GPU (mayor es mejor)"
-    x-axis ["Argon2id (64MB)", "scrypt (N=2^15)", "bcrypt (cost=12)"]
+    title "Tiempo de crackeo en GPU RTX 4090 (años, mayor es mejor)"
+    x-axis ["Argon2id", "scrypt", "bcrypt"]
     y-axis "Años" 0 --> 500
     bar [475, 45, 3]
 ```
@@ -539,8 +539,8 @@ Toda acción relevante en el dashboard queda registrada en una tabla `audit_logs
 
 ```mermaid
 xychart-beta horizontal
-    title "Tiempo de build en producción para SPA de tamaño similar (segundos, menor es mejor)"
-    x-axis ["Vite 6 (Rollup)", "Next.js 15 (Turbopack)", "Create React App (Webpack 5)", "Parcel 2"]
+    title "Build de produccion SPA (segundos, menor es mejor)"
+    x-axis ["Vite 6", "Next.js 15", "CRA Webpack 5", "Parcel 2"]
     y-axis "Segundos" 0 --> 30
     bar [3, 8, 25, 12]
 ```
@@ -771,8 +771,8 @@ MongoDB es la elección correcta para el EHR — un expediente médico es un doc
 
 ```mermaid
 xychart-beta horizontal
-    title "Latencia de lectura en MongoDB según volumen (ms, p95)"
-    x-axis ["50K docs (5 clinicas)", "300K docs (15 clinicas)", "2M docs (30 clinicas)", "2M docs + sharding"]
+    title "Latencia lectura MongoDB p95 (ms)"
+    x-axis ["50K docs", "300K docs", "2M docs", "2M + sharding"]
     y-axis "ms" 0 --> 200
     bar [8, 35, 180, 12]
 ```
@@ -793,8 +793,8 @@ El equipo actual (6 devs Node.js) opera un conjunto de microservicios en ECS Far
 
 ```mermaid
 xychart-beta horizontal
-    title "Tiempo de respuesta p99 según concurrencia (ms)"
-    x-axis ["50 req/s (5 clinicas)", "150 req/s (15 clinicas)", "300 req/s (30 clinicas)", "300 req/s + auto-scale"]
+    title "Tiempo de respuesta p99 (ms)"
+    x-axis ["50 req/s", "150 req/s", "300 req/s", "300 + auto-scale"]
     y-axis "ms" 0 --> 800
     bar [45, 120, 650, 85]
 ```
@@ -870,8 +870,8 @@ graph LR
 
 ```mermaid
 xychart-beta horizontal
-    title "Costo mensual estimado de infraestructura AWS (USD)"
-    x-axis ["5 clinicas (actual)", "15 clinicas", "30 clinicas", "30 clinicas optimizado"]
+    title "Costo mensual infra AWS (USD)"
+    x-axis ["5 clinicas", "15 clinicas", "30 clinicas", "30 optimizado"]
     y-axis "USD/mes" 0 --> 2500
     bar [350, 850, 2200, 1400]
 ```
@@ -890,50 +890,61 @@ xychart-beta horizontal
 
 ### 8. Equipo y organización
 
+El crecimiento de equipo no debe ser proporcional al de clínicas. Con las herramientas correctas, capacitación continua y adopción ética de IA generativa, un equipo de 6 puede escalar a 30 clínicas creciendo solo ~25% en headcount:
+
 ```mermaid
 xychart-beta horizontal
-    title "Devs necesarios por área según número de clínicas"
-    x-axis ["5 clinicas (actual)", "15 clinicas", "30 clinicas"]
-    y-axis "Desarrolladores" 0 --> 16
-    bar "Backend (Node.js)" [3, 5, 7]
-    bar "Frontend + Mobile" [2, 3, 5]
-    bar "Infra / DevOps" [0, 1, 2]
-    bar "Data / Analytics" [0, 0, 1]
+    title "Equipo actual vs proyectado (personas)"
+    x-axis ["5 clinicas", "15 clinicas", "30 clinicas"]
+    y-axis "Personas" 0 --> 10
+    bar "Dev + DevOps" [6, 7, 8]
 ```
 
-| Fase | Equipo | Prioridad de contratación |
-|------|--------|--------------------------|
-| 5 clínicas (hoy) | 6 devs full-stack Node.js | No se necesita más — el equipo actual cubre todo. |
-| 10-15 clínicas | 8-9 devs + 1 DevOps | **DevOps/SRE** para manejar infra, CI/CD, monitoring. Los 6 devs actuales no deberían operar infra y desarrollar producto al mismo tiempo. |
-| 20-30 clínicas | 12-15 personas | **Tech lead por dominio** (EHR, plataforma, data). Sin liderazgo técnico por área, las decisiones de arquitectura se toman ad-hoc y la deuda técnica se acumula. |
+| Fase | Equipo | Estrategia |
+|------|--------|------------|
+| 5 clínicas (hoy) | 6 devs full-stack Node.js | Equipo actual cubre todo. Invertir en capacitación sobre el negocio clínico para que las decisiones técnicas estén informadas por contexto operativo. |
+| 10-15 clínicas | 7 personas (+1 DevOps/SRE) | El nuevo rol absorbe infra, CI/CD y monitoring, liberando a los 6 devs para producto. **Capacitación del equipo** en el stack nuevo (Go para el panel) y en herramientas de IA generativa (Cursor, Claude Code, Copilot) para multiplicar productividad individual. |
+| 20-30 clínicas | 8 personas (+1 dev senior) | Un senior con experiencia en el dominio (healthtech o fintech). El equipo existente ya está capacitado y potenciado con IA. **Uso ético de IA generativa**: code review asistido, generación de tests, documentación automática — nunca para decisiones clínicas ni datos de pacientes. |
+
+#### IA generativa como multiplicador de productividad
+
+En lugar de contratar para escalar, el equipo adopta herramientas de IA de forma estructurada:
+
+| Uso | Herramienta | Impacto estimado | Política de uso |
+|-----|-------------|------------------|-----------------|
+| Desarrollo y refactoring | Claude Code, Cursor | +40-60% velocidad en código nuevo | Revisión humana obligatoria antes de merge. Nunca auto-merge. |
+| Tests unitarios y de integración | Claude Code, Copilot | +80% cobertura con menos esfuerzo | IA genera tests, humano valida escenarios de negocio. |
+| Code review | Claude Code | Primer pase automático, humano revisa lo crítico | IA detecta bugs obvios y security issues. Decisiones de diseño las toma el equipo. |
+| Documentación | Claude Code | READMEs y docs técnicos actualizados | IA genera, humano aprueba. No se usa IA para documentación clínica. |
+| **Datos de pacientes** | **Ninguna** | — | **Prohibido** enviar datos reales de pacientes a herramientas de IA externas. Solo datos sintéticos para desarrollo. |
 
 ### Resumen de prioridades por fase
 
 ```mermaid
 gantt
-    title Roadmap de escalabilidad — plataforma completa
+    title Roadmap — plataforma completa
     dateFormat YYYY-MM-DD
     axisFormat %Y-%m
 
-    section Fase 1: 10 clinicas
-    MongoDB read replicas              :2026-07-01, 30d
-    Auto-scaling ECS Fargate           :2026-07-01, 30d
-    API Gateway + WAF                  :2026-07-15, 30d
-    Contratar DevOps/SRE               :2026-07-01, 60d
-    CI/CD por servicio                 :2026-08-01, 30d
+    section 10 clinicas
+    Mongo read replicas   :2026-07-01, 30d
+    ECS auto-scaling      :2026-07-01, 30d
+    API Gateway + WAF     :2026-07-15, 30d
+    +1 DevOps/SRE         :2026-07-01, 60d
+    CI/CD por servicio    :2026-08-01, 30d
+    Capacitacion IA       :2026-08-01, 30d
 
-    section Fase 2: 15-20 clinicas
-    MongoDB sharding por clinic_id     :2026-10-01, 45d
-    Change Streams → SQS sync          :2026-10-01, 45d
-    Redis cache (sesiones + métricas)  :2026-10-15, 30d
-    Read replica Aurora (panel)        :2026-11-01, 15d
-    2FA para admin/strategy            :2026-11-01, 30d
-    Contratar tech leads por dominio   :2026-10-01, 60d
+    section 15-20 clinicas
+    Mongo sharding        :2026-10-01, 45d
+    Sync SQS panel        :2026-10-01, 45d
+    Redis cache           :2026-10-15, 30d
+    Aurora read replica   :2026-11-01, 15d
+    2FA admin             :2026-11-01, 30d
 
-    section Fase 3: 25-30 clinicas
-    Circuit breakers entre servicios   :2027-01-01, 30d
-    Tracing distribuido (X-Ray)        :2027-01-15, 30d
-    Data warehouse (Redshift/BQ)       :2027-02-01, 60d
-    Multi-región (si aplica)           :2027-03-01, 60d
-    Incident response runbook          :2027-01-01, 30d
+    section 25-30 clinicas
+    Circuit breakers      :2027-01-01, 30d
+    Tracing X-Ray         :2027-01-15, 30d
+    Data warehouse        :2027-02-01, 60d
+    +1 Dev senior         :2027-01-01, 60d
+    Incident runbook      :2027-01-01, 30d
 ```
