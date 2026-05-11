@@ -777,16 +777,16 @@ gantt
     Panel en PostgreSQL      :done, 2026-05-01, 30d
 
     section Fase 2
-    Citas → PostgreSQL       :2026-09-01, 90d
-    Pagos → PostgreSQL       :2026-12-01, 90d
+    Citas → PostgreSQL       :2026-08-01, 75d
+    Pagos → PostgreSQL       :2026-10-15, 75d
 
     section Fase 3
-    Scheduling → PostgreSQL  :2027-04-01, 60d
-    Catálogos → PostgreSQL   :2027-06-01, 45d
+    Scheduling → PostgreSQL  :2027-01-01, 60d
+    Catálogos → PostgreSQL   :2027-03-01, 45d
 
     section MongoDB se queda
-    Expedientes clínicos     :milestone, 2027-08-01, 0d
-    Notas médicas            :milestone, 2027-08-01, 0d
+    Expedientes clínicos     :milestone, 2027-06-01, 0d
+    Notas médicas            :milestone, 2027-06-01, 0d
 ```
 
 > **El EHR se queda en MongoDB** — es el caso de uso correcto. Lo que migra a PostgreSQL son los datos transaccionales (citas, pagos, scheduling, catálogos) que necesitan integridad referencial y JOINs eficientes. El resultado es que cada motor hace lo que mejor sabe hacer.
@@ -1041,21 +1041,21 @@ gantt
     axisFormat %Y-%m
 
     section 10 clinicas
-    API Gateway + WAF     :2026-07-01, 60d
-    ECS auto-scaling      :2026-07-01, 45d
-    CI/CD por servicio    :2026-08-01, 60d
-    Citas → PostgreSQL    :2026-09-01, 90d
-    Pagos → PostgreSQL    :2026-12-01, 90d
+    API Gateway + WAF     :2026-07-01, 45d
+    ECS auto-scaling      :2026-07-01, 30d
+    CI/CD por servicio    :2026-08-01, 45d
+    Citas → PostgreSQL    :2026-08-01, 75d
+    Pagos → PostgreSQL    :2026-10-15, 75d
 
     section 15-20 clinicas
-    Mongo sharding        :2027-03-01, 60d
-    Redis cache           :2027-03-01, 45d
-    Aurora read replica   :2027-04-01, 30d
-    2FA admin             :2027-05-01, 45d
+    Mongo sharding        :2027-01-01, 45d
+    Redis cache           :2027-01-01, 30d
+    Aurora read replica   :2027-02-01, 30d
+    2FA admin             :2027-02-01, 30d
 
     section 25-30 clinicas
-    Circuit breakers      :2027-07-01, 60d
-    Tracing X-Ray         :2027-08-01, 45d
-    Data warehouse        :2027-09-01, 90d
-    Incident runbook      :2027-07-01, 45d
+    Circuit breakers      :2027-03-15, 45d
+    Tracing X-Ray         :2027-04-01, 30d
+    Data warehouse        :2027-04-15, 60d
+    Incident runbook      :2027-03-15, 30d
 ```
