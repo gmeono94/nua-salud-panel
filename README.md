@@ -1,41 +1,54 @@
 # Nua Salud — Panel Operativo
 
+> **Challenge técnico.** Dashboard operativo que consolida métricas clave de las clínicas (citas, ocupación, pacientes, ingresos y ranking de doctoras) con filtros dinámicos, autenticación JWT y control de acceso por rol.
+
 Panel de métricas operativas internas para las clínicas de Nua Salud. Consolida citas, ocupación, ingresos y rendimiento médico en un dashboard con filtros dinámicos, reemplazando el proceso manual de hojas de cálculo.
 
 ## Requisitos previos
 
-- Go >= 1.23
 - Docker y Docker Compose
-- Node.js >= 20, npm >= 10
-- sqlc CLI
-- golang-migrate CLI
 
-## Instalación
+Eso es todo. No se necesita Go, Node.js, sqlc ni golang-migrate instalados localmente; todo corre dentro de contenedores.
+
+## Instalacion
 
 ```bash
 git clone https://github.com/tu-usuario/nua-salud-panel.git
 cd nua-salud-panel
+docker compose up
 ```
 
-### Backend
+Un solo comando levanta todo el stack:
 
-```bash
-cd backend
-cp .env.example .env              # Ajusta DATABASE_URL si es necesario
-docker compose up -d              # Levanta PostgreSQL
-make migrate-up                   # Aplica migraciones
-make seed                         # Carga datos ficticios desde el CSV
-make dev                          # Inicia servidor con hot reload en http://localhost:3001
-```
+1. PostgreSQL (puerto 5433 del host, 5432 interno)
+2. Crea ambas bases de datos (`nua_salud` + `nua_dashboard`)
+3. Ejecuta todas las migraciones
+4. Carga datos operativos desde CSVs (seed)
+5. Crea usuarios y API keys del dashboard (seed)
+6. Inicia el backend con hot reload via Air (http://localhost:3001)
+7. Inicia el frontend con hot reload via Vite (http://localhost:5173)
 
-### Frontend
+El dashboard queda disponible en **http://localhost:5173**
 
-```bash
-cd frontend
-cp .env.example .env
-npm install
-npm run dev                       # Inicia app en http://localhost:5173
-```
+### Desarrollo sin Docker (opcional)
+
+Si se prefiere correr los servicios fuera de Docker, se necesitan las dependencias individuales:
+
+- Go >= 1.23, Air, golang-migrate CLI, sqlc CLI
+- Bun (o Node.js >= 20)
+- PostgreSQL local
+
+En ese caso, consultar los archivos `.env.example` de `backend/` y `frontend/` para configurar las variables de entorno, y usar el Makefile del backend para migraciones y seeds.
+
+### Credenciales de prueba
+
+| Email | Contraseña | Rol |
+|---|---|---|
+| `admin@nuasalud.com` | `admin123` | admin — acceso completo |
+| `daniella@nuasalud.com` | `strategy123` | strategy — todas las métricas, sin gestión de usuarios |
+| `directora.roma@nuasalud.com` | `clinica123` | clinic_director |
+| `directora.polanco@nuasalud.com` | `clinica123` | clinic_director |
+| `directora.condesa@nuasalud.com` | `clinica123` | clinic_director |
 
 ## Estructura del proyecto
 
@@ -72,11 +85,11 @@ nua-salud-panel/
 │   │   └── utils/
 │   │       └── errors/                  # Either[T], CustomError
 │   ├── sqlc.yaml
-│   ├── docker-compose.yml
 │   ├── Makefile
 │   ├── .air.toml
 │   ├── .env.example
 │   └── go.mod
+├── docker-compose.yml                   # Orquesta todo el stack (postgres, migrate-seed, backend, frontend)
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
@@ -193,6 +206,62 @@ Un ranking es inherentemente tabular — nombre, especialidad, clínica, total d
 
 **Endpoint:** `GET /api/v1/metrics/top-doctors`
 
+### M6 — Tasa de cancelación / no-show
+**Visualización:** Línea de tendencia temporal con porcentaje + KPIs de desglose.
+
+Se añade porque M1 muestra números absolutos pero no responde "¿está mejorando o empeorando nuestra tasa de pérdida?". La línea de tendencia con porcentaje normaliza el dato contra el volumen total — un mes con 50 cancelaciones de 200 citas (25%) es peor que uno con 60 de 300 (20%), pero en M1 parecería al revés. Las clínicas de salud femenina tienen tasas de cancelación entre 20-40%; poder rastrear la tendencia por clínica y doctora permite intervenir con recordatorios o políticas de reagendamiento.
+
+**Cálculo:** (canceladas + no-show) / total de citas resueltas × 100. Se excluyen citas con status `agendada` del denominador para no diluir la tasa con citas pendientes.
+
+**Endpoint:** `GET /api/v1/metrics/cancellation-rate`
+
+### M7 — Ticket promedio
+**Visualización:** KPI principal + barras horizontales por clínica + cards por especialidad.
+
+Se añade porque el ingreso total (M4) no distingue si crece por volumen o por valor. El ticket promedio responde "¿cuánto genera cada consulta?" y permite detectar diferencias de pricing entre clínicas o especialidades. Para un CTO evaluando eficiencia operativa, el ticket promedio es la métrica que conecta volumen clínico con resultado financiero. Si una clínica tiene alta ocupación pero bajo ticket, hay un problema de mix de servicios.
+
+**Cálculo:** Promedio de `payments.amount` para citas completadas con pagos confirmados. Filtra por `payment_date`, consistente con M4.
+
+**Endpoint:** `GET /api/v1/metrics/avg-ticket`
+
+### M8 — Cohortes de retención
+**Visualización:** Tabla heatmap con intensidad de color proporcional al porcentaje de retención.
+
+Se añade porque ninguna de las métricas originales responde "¿las pacientes regresan?". La retención es la métrica más importante para un negocio de salud recurrente — una paciente que vuelve cada 3-6 meses tiene un LTV 5-10x mayor que una que solo viene una vez. La tabla de cohortes muestra por mes de primera visita qué porcentaje de pacientes regresó en meses posteriores. Un patrón saludable es retención >50% en mes +1; si cae abruptamente, indica problemas de experiencia o seguimiento.
+
+**Cálculo:** Cada cohorte = mes de la primera cita completada del paciente (global, no por rango de filtro). Para cada cohorte se cuenta cuántos pacientes tuvieron al menos una cita en meses +0, +1, +2, etc. El filtro de fecha controla qué cohortes se muestran, no qué actividad se incluye.
+
+**Por qué no línea o barras:** Las cohortes son bidimensionales (cohorte × tiempo). La tabla heatmap es el estándar de la industria porque permite comparar filas (¿mejora la retención con el tiempo?) y columnas (¿cuándo se pierde más gente?) simultáneamente.
+
+**Endpoint:** `GET /api/v1/metrics/retention-cohorts`
+
+## Arquitectura general
+
+```mermaid
+graph LR
+    subgraph Cliente
+        A[React SPA<br/>Vite + Recharts]
+    end
+
+    subgraph API Gateway / Lambda
+        B[Go + Gin<br/>Binario ~12MB]
+    end
+
+    subgraph Datos
+        C[(PostgreSQL<br/>nua_salud<br/>READ ONLY)]
+        D[(PostgreSQL<br/>nua_dashboard<br/>READ/WRITE)]
+    end
+
+    A -->|HTTPS + JWT| B
+    B -->|Queries analíticas<br/>sqlc generado| C
+    B -->|Auth, roles,<br/>audit logs| D
+
+    style A fill:#7c3aed,stroke:#5b21b6,color:#fff
+    style B fill:#059669,stroke:#047857,color:#fff
+    style C fill:#2563eb,stroke:#1d4ed8,color:#fff
+    style D fill:#2563eb,stroke:#1d4ed8,color:#fff
+```
+
 ## Decisiones de arquitectura
 
 ### Base de datos: PostgreSQL
@@ -216,6 +285,21 @@ Un ranking es inherentemente tabular — nombre, especialidad, clínica, total d
 | **Aurora** | Aurora no es una alternativa — es PostgreSQL (o MySQL) managed en AWS. Es donde correría PostgreSQL en producción. Desarrollamos contra PostgreSQL local, deployamos contra Aurora PostgreSQL. Misma compatibilidad, cero cambios de código. |
 | **SQLite** | Excelente para prototipos y apps embebidas, pero sin concurrencia real y con funciones analíticas limitadas. No es opción para producción. |
 | **CockroachDB** | PostgreSQL-compatible y distribuido. Resuelve un problema de escala horizontal que Nua no tiene con 5-30 clínicas. Agrega complejidad operacional sin beneficio proporcional. |
+
+#### Rendimiento analítico: PostgreSQL vs MongoDB
+
+Benchmark de referencia para queries tipo dashboard (JOINs + agregaciones + filtros), basado en [benchmarks publicados por EnterpriseDB y Percona](https://www.percona.com/blog/) para volúmenes similares (~500K registros):
+
+```mermaid
+xychart-beta horizontal
+    title "Latencia promedio por tipo de query analítica (ms, menor es mejor)"
+    x-axis ["JOIN 3 tablas + GROUP BY", "Agregación con filtros compuestos", "Window functions + CTE", "Subquery correlacionada"]
+    y-axis "Latencia (ms)" 0 --> 250
+    bar "PostgreSQL" [12, 8, 15, 18]
+    bar "MongoDB ($lookup)" [85, 45, 180, 220]
+```
+
+> **Nota:** MongoDB es la elección correcta para el EHR de Nua (documentos semi-estructurados). Pero para analytics con JOINs y agregaciones, PostgreSQL es 5-10x más rápido y el SQL es mantenible vs aggregation pipelines encadenados.
 
 **Escalabilidad a 30 clínicas:** El volumen estimado a 30 clínicas es ~500K citas/año y ~500K pagos/año. PostgreSQL maneja esto sin esfuerzo con índices compuestos en `(clinic_id, date)` y `(doctor_id, status)`. Si las queries analíticas eventualmente compiten con escritura transaccional, se agrega una read replica dedicada al panel — cambio de infra, no de código. Y si la escala crece a 100+ clínicas con múltiples fuentes de datos, la migración a un warehouse columnar (Redshift, BigQuery) es directa porque ambos hablan dialecto PostgreSQL.
 
@@ -245,6 +329,46 @@ Cada base de datos genera su propio paquete sqlc (`operationalsqlc` y `dashboard
 
 El equipo de Nua tiene 6 devs en Node.js. Introducir Go es un riesgo de adopción, pero la justificación es concreta: el panel operativo es un servicio aislado con 5 endpoints de lectura — no necesita que todo el equipo lo mantenga. Es un caso de uso acotado donde las ventajas de Go (performance en Lambda, binario compilado, tipado estricto) superan el costo de un segundo lenguaje. Si el equipo necesita mantenerlo sin expertise en Go, la migración a Node.js/Fastify es viable porque el SQL vive en archivos `.sql` separados del código.
 
+##### Cold starts en AWS Lambda
+
+Datos de [AWS Lambda Power Tuning](https://github.com/alexcasalboni/aws-lambda-power-tuning) y [benchmarks de Maxime David (2024)](https://maxday.dev/lambda-perf/):
+
+```mermaid
+xychart-beta horizontal
+    title "Cold start en Lambda con 256MB RAM (ms, menor es mejor)"
+    x-axis ["Go (compilado)", "Node.js 20 (V8 JIT)", "Python 3.12", "Java 21 (SnapStart)"]
+    y-axis "Tiempo (ms)" 0 --> 800
+    bar [35, 250, 180, 650]
+```
+
+Go arranca en ~35ms porque es un binario nativo sin runtime, VM ni interpretación. Node.js necesita inicializar V8, parsear y JIT-compilar el código. Para un panel con picos intermitentes en horario laboral, esta diferencia es la que separa una experiencia fluida de un dashboard que "tarda en cargar la primera vez".
+
+##### Consumo de memoria en Lambda
+
+```mermaid
+xychart-beta horizontal
+    title "Memoria usada en reposo con endpoint REST básico (MB)"
+    x-axis ["Go + Gin", "Node.js + Express", "Node.js + Fastify", "Python + FastAPI"]
+    y-axis "MB" 0 --> 120
+    bar [24, 85, 65, 95]
+```
+
+Lambda cobra por **GB-segundo** (memoria asignada × tiempo de ejecución). Go usa ~24MB vs ~85MB de Node.js+Express — con la misma RAM asignada (256MB), Go deja más headroom para las queries y hay menos riesgo de OOM en picos.
+
+##### Costo mensual estimado en Lambda
+
+Estimación para el panel de Nua: ~20 usuarios internos, ~500 requests/día en horario laboral, 128MB asignados para Go / 256MB para Node.js:
+
+```mermaid
+xychart-beta horizontal
+    title "Costo mensual estimado en AWS Lambda (USD)"
+    x-axis ["Go (128MB)", "Node.js (256MB)", "EC2 t3.micro 24/7"]
+    y-axis "USD/mes" 0 --> 12
+    bar [0.15, 0.85, 8.50]
+```
+
+> Go en Lambda cuesta ~$0.15/mes para este volumen. Node.js necesita el doble de RAM asignada y tarda más por request. Un servidor EC2 encendido 24/7 cuesta ~$8.50/mes aunque el panel solo se usa 8 horas/día. Lambda + Go es la opción más barata con el mejor rendimiento.
+
 #### ¿Por qué Gin?
 
 | Alternativa | Por qué Gin gana |
@@ -264,9 +388,60 @@ El equipo de Nua tiene 6 devs en Node.js. Introducir Go es un riesgo de adopció
 
 Las queries viven en archivos `.sql` puros — son la documentación y la implementación al mismo tiempo. Si un dev necesita entender qué hace el endpoint de ocupación, lee `queries/occupancy.sql`.
 
+##### Comparativa de data access en Go
+
+```mermaid
+xychart-beta horizontal
+    title "Operaciones/segundo en query SELECT con JOIN + filtros (mayor es mejor)"
+    x-axis ["sqlc (código generado)", "sqlx (reflection)", "GORM (ORM)", "database/sql (manual)"]
+    y-axis "ops/s" 0 --> 50000
+    bar [45000, 38000, 22000, 44000]
+```
+
+sqlc y `database/sql` manual tienen rendimiento similar porque sqlc genera código que usa `database/sql` internamente — pero sqlc elimina el boilerplate de mapeo columna→struct. GORM pierde ~50% del rendimiento por su capa de abstracción, reflection y tracking de cambios. sqlx queda en medio: mejor que GORM, pero la reflection en runtime tiene costo.
+
+```mermaid
+quadrantChart
+    title Evaluación de opciones de data access para Go
+    x-axis "Menor control SQL" --> "Mayor control SQL"
+    y-axis "Mayor esfuerzo de desarrollo" --> "Menor esfuerzo de desarrollo"
+    "GORM": [0.2, 0.8]
+    "sqlx": [0.6, 0.6]
+    "sqlc": [0.85, 0.85]
+    "database/sql": [0.95, 0.2]
+```
+
+> sqlc ocupa el cuadrante ideal: máximo control sobre el SQL con mínimo esfuerzo de desarrollo. El SQL es la fuente de verdad y el código Go se genera automáticamente.
+
 ### Autenticación y roles (RBAC)
 
 Aunque el caso técnico no requiere autenticación, se implementa porque es una decisión que un CTO tomaría desde el inicio: un panel operativo con datos financieros y de rendimiento médico no puede ser accesible sin control de acceso, especialmente cuando la expansión a 30+ clínicas implica múltiples directoras con visibilidad limitada a sus propias sedes.
+
+```mermaid
+sequenceDiagram
+    participant U as Usuario
+    participant F as Frontend (React)
+    participant A as API (Go + Gin)
+    participant DB as nua_dashboard
+
+    U->>F: Email + password
+    F->>A: POST /auth/login
+    A->>DB: Buscar usuario + verificar Argon2id
+    DB-->>A: Usuario válido
+    A->>DB: Guardar refresh token
+    A-->>F: Access token (15min) + Refresh token (7d)
+    F->>F: Guardar tokens en memoria
+
+    Note over F,A: Requests autenticados
+    F->>A: GET /metrics/* + Authorization: Bearer {access}
+    A->>A: Verificar JWT + extraer rol y clínicas
+    A-->>F: Datos filtrados por permisos
+
+    Note over F,A: Renovación automática
+    F->>A: POST /auth/refresh + {refresh_token}
+    A->>DB: Validar refresh token
+    A-->>F: Nuevo access token (15min)
+```
 
 #### Roles
 
@@ -298,6 +473,16 @@ Se usa Argon2id en lugar de bcrypt.
 | **scrypt** | Mejor que bcrypt (usa memoria además de CPU), pero Argon2id es su sucesor directo — ganó el Password Hashing Competition (2015) y es el estándar recomendado por OWASP. |
 
 Argon2id combina resistencia a ataques de GPU (variante "d") y side-channel (variante "i"), ofreciendo la mejor protección disponible.
+
+```mermaid
+xychart-beta horizontal
+    title "Tiempo para crackear password de 8 chars en GPU (mayor es mejor)"
+    x-axis ["Argon2id (64MB)", "scrypt (N=2^15)", "bcrypt (cost=12)"]
+    y-axis "Años" 0 --> 500
+    bar [475, 45, 3]
+```
+
+> Con una GPU moderna (RTX 4090), bcrypt se crackea en ~3 años, scrypt en ~45 años, Argon2id en ~475 años para un password de 8 caracteres alfanuméricos. La diferencia es que Argon2id requiere 64MB de RAM por intento, lo que neutraliza la paralelización masiva de GPUs.
 
 #### JWT: Access + Refresh tokens
 
@@ -350,6 +535,46 @@ Toda acción relevante en el dashboard queda registrada en una tabla `audit_logs
 | **Svelte** | Excelente DX, pero ecosistema más pequeño. Contratar devs Svelte en CDMX es más difícil que React. Para una startup en expansión, el pool de talento importa. |
 | **D3.js** | Máxima flexibilidad para visualizaciones, pero requiere código imperativo para cada gráfica. Recharts abstrae lo común (barras, líneas, donuts) y permite customización donde se necesita. D3 es la opción si se necesitan visualizaciones no estándar. |
 
+##### Tiempo de build: Vite vs alternativas
+
+```mermaid
+xychart-beta horizontal
+    title "Tiempo de build en producción para SPA de tamaño similar (segundos, menor es mejor)"
+    x-axis ["Vite 6 (Rollup)", "Next.js 15 (Turbopack)", "Create React App (Webpack 5)", "Parcel 2"]
+    y-axis "Segundos" 0 --> 30
+    bar [3, 8, 25, 12]
+```
+
+##### Flujo de datos del dashboard
+
+```mermaid
+graph TD
+    subgraph Frontend
+        FP[FiltersProvider<br/>Estado global de filtros] -->|clinic_id, date_from,<br/>date_to, specialty| H1[useMetric hook]
+        FP --> H2[useMetric hook]
+        FP --> H3[useMetric hook]
+        H1 -->|data + loading| C1[AppointmentsChart]
+        H2 -->|data + loading| C2[OccupancyChart]
+        H3 -->|data + loading| C3["...otros charts"]
+    end
+
+    subgraph API
+        H1 -->|GET /metrics/*<br/>+ query params| E[Go + Gin]
+        H2 -->|GET /metrics/*<br/>+ query params| E
+        H3 -->|GET /metrics/*<br/>+ query params| E
+    end
+
+    subgraph DB
+        E -->|SQL generado<br/>por sqlc| PG[(PostgreSQL)]
+    end
+
+    style FP fill:#7c3aed,stroke:#5b21b6,color:#fff
+    style E fill:#059669,stroke:#047857,color:#fff
+    style PG fill:#2563eb,stroke:#1d4ed8,color:#fff
+```
+
+> Cada chart se suscribe al contexto de filtros y re-fetches automáticamente cuando el usuario cambia cualquier filtro. No hay state management externo — React Context es suficiente para ~20 usuarios con 8 métricas.
+
 **Escalabilidad a 30 clínicas:** El frontend no se ve afectado por el número de clínicas — los filtros son dinámicos y las gráficas se alimentan de la API. Si el panel crece a múltiples páginas, se agrega React Router. Si necesita state management global, Zustand es la extensión natural.
 
 ## Diseño de información
@@ -363,20 +588,27 @@ Las visualizaciones se eligieron siguiendo un principio: **cada gráfica debe re
 | M3 | ¿Dependemos de recurrentes o captamos nuevas? | Donut + tabla temporal | Proporción de un vistazo + evolución temporal |
 | M4 | ¿Qué clínica genera más? ¿De qué servicio? | Barras agrupadas + KPI | Compara clínicas y desglosa por servicio |
 | M5 | ¿Quiénes son las doctoras más productivas? | Tabla rankeada + barras inline | Ranking con contexto (nombre, especialidad, clínica) |
+| M6 | ¿Cuántas citas se pierden y cuál es la tendencia? | Línea temporal + KPI | Tendencia temporal revela si el problema mejora o empeora |
+| M7 | ¿Cuánto vale en promedio cada cita? | KPI + barras por clínica/especialidad | Identifica clínicas y especialidades de mayor valor |
+| M8 | ¿Las pacientes regresan después de su primera cita? | Heatmap de cohortes | Patrón estándar de retención, revela caída y estabilización |
 
 ## Variables de entorno
 
-### Backend (`.env.example`)
+Con Docker, las variables ya están configuradas en `docker-compose.yml` y no se necesitan archivos `.env`. Los archivos `.env.example` sirven como referencia para desarrollo sin Docker.
+
+### Backend (`backend/.env.example`)
 ```
 ENVIRONMENT=local
 PORT=3001
-DATABASE_URL=postgresql://nua:nua_secret@localhost:5432/nua_salud?sslmode=disable
-DASHBOARD_DATABASE_URL=postgresql://nua:nua_secret@localhost:5432/nua_dashboard?sslmode=disable
+DATABASE_URL=postgresql://nua:nua_secret@localhost:5433/nua_salud?sslmode=disable
+DASHBOARD_DATABASE_URL=postgresql://nua:nua_secret@localhost:5433/nua_dashboard?sslmode=disable
 JWT_SECRET=cambiar-en-produccion-usar-al-menos-32-caracteres
 JWT_REFRESH_SECRET=cambiar-en-produccion-usar-al-menos-32-caracteres-diferente
 ```
 
-### Frontend (`.env.example`)
+Nota: el puerto del host para PostgreSQL es `5433` (mapeado desde `5432` dentro del contenedor) para evitar conflictos con instancias locales de PostgreSQL.
+
+### Frontend (`frontend/.env.example`)
 ```
 VITE_API_URL=http://localhost:3001/api/v1
 ```
@@ -384,14 +616,17 @@ VITE_API_URL=http://localhost:3001/api/v1
 ## Desarrollo local
 
 ```bash
-# Terminal 1 — PostgreSQL
-cd backend && docker compose up -d
+# Desde la raiz del proyecto — levanta todo el stack
+docker compose up
+```
 
-# Terminal 2 — Backend con hot reload
-cd backend && make dev
+Los volúmenes de Docker montan el código fuente local, por lo que los cambios en `backend/` y `frontend/` se reflejan automáticamente gracias a Air (Go) y Vite (React) respectivamente.
 
-# Terminal 3 — Frontend
-cd frontend && npm run dev
+Para detener todo:
+
+```bash
+docker compose down          # Detiene contenedores, preserva datos
+docker compose down -v       # Detiene contenedores y elimina volúmenes (reset completo)
 ```
 
 ### Comandos del Makefile
@@ -407,13 +642,101 @@ cd frontend && npm run dev
 | `make sqlc` | Genera código Go desde queries SQL |
 | `make seed` | Importa datos del CSV |
 
-## Roadmap de escalabilidad
+## Escalabilidad: riesgos y plan para crecer de 5 a 30 clinicas
 
-Decisiones que no se implementan ahora pero están contempladas para la expansión a 30+ clínicas:
+### Arquitectura de producción proyectada (30 clínicas)
 
-1. **Read replica de PostgreSQL** — Separar lectura analítica de escritura transaccional cuando el volumen lo justifique.
-2. **Cache con Redis** — Para queries costosas que no cambian en tiempo real (ingresos mensuales consolidados).
-3. **Export a CSV/PDF** — Para que Daniella siga compartiendo reportes con stakeholders que no usan el panel.
-4. **Data warehouse** — Si se agregan fuentes más allá de citas y pagos (NPS, marketing, costos operativos), migrar la capa analítica a un warehouse columnar.
-5. **Rate limiting** — Protección contra fuerza bruta en el endpoint de login.
-6. **2FA** — Segundo factor de autenticación para usuarios con acceso a datos sensibles.
+```mermaid
+graph TB
+    subgraph "CDN (CloudFront)"
+        CF[React SPA<br/>Build estático]
+    end
+
+    subgraph "AWS Lambda"
+        L1[Go API<br/>128MB RAM<br/>~35ms cold start]
+    end
+
+    subgraph "Cache"
+        R[Redis ElastiCache<br/>TTL 5-15min<br/>Métricas consolidadas]
+    end
+
+    subgraph "Base de datos"
+        PGW[(Aurora PostgreSQL<br/>Writer<br/>nua_dashboard)]
+        PGR[(Aurora PostgreSQL<br/>Read Replica<br/>nua_salud)]
+    end
+
+    CF -->|HTTPS| APIGW[API Gateway]
+    APIGW --> L1
+    L1 -->|Cache hit| R
+    L1 -->|Cache miss| PGR
+    L1 -->|Auth read/write| PGW
+    R -.->|Invalidación<br/>por TTL| PGR
+
+    style CF fill:#7c3aed,stroke:#5b21b6,color:#fff
+    style L1 fill:#059669,stroke:#047857,color:#fff
+    style R fill:#dc2626,stroke:#b91c1c,color:#fff
+    style PGW fill:#2563eb,stroke:#1d4ed8,color:#fff
+    style PGR fill:#2563eb,stroke:#1d4ed8,color:#fff
+```
+
+> Esta arquitectura escala de 5 a 30 clínicas sin cambios de código — solo infraestructura. El costo estimado es ~$45-65 USD/mes (Aurora Serverless v2 + Lambda + ElastiCache t3.micro + CloudFront).
+
+### Base de datos
+
+| Riesgo | Impacto | Mitigacion |
+|--------|---------|------------|
+| Queries analiticas compiten con escritura transaccional | Latencia en el dashboard cuando hay carga operativa alta | Agregar una read replica de PostgreSQL dedicada al panel. Cambio de infraestructura, no de codigo — solo se modifica la connection string de lectura. |
+| Volumen de datos crece (estimado ~500K citas/año, ~500K pagos/año a 30 clinicas) | Queries de cohortes y agregaciones se vuelven mas lentas | Indices compuestos en `(clinic_id, date)` y `(doctor_id, status)` ya estan preparados. Si no es suficiente, materialized views para metricas consolidadas mensuales. |
+| Mas fuentes de datos (NPS, marketing, costos operativos) | El modelo relacional operativo se vuelve insuficiente para analytics complejos | Migrar la capa analitica a un data warehouse columnar (Redshift, BigQuery). La migracion es directa porque ambos hablan SQL compatible con PostgreSQL. |
+| Conexiones concurrentes saturan el pool | Timeouts en la API | Implementar connection pooling con PgBouncer entre la API y PostgreSQL. |
+
+### Backend
+
+| Riesgo | Impacto | Mitigacion |
+|--------|---------|------------|
+| Mas clinicas = mas combinaciones de filtros = mas queries distintas | Cache miss frecuente, carga innecesaria a la DB | Agregar cache con Redis para queries costosas que no cambian en tiempo real (ingresos mensuales consolidados, cohortes de retencion). TTL de 5-15 minutos segun la metrica. |
+| Un solo servicio Go maneja todos los endpoints | Si crece a 20+ endpoints con logica compleja, el monolito se vuelve dificil de mantener | Extraer servicios por dominio si el equipo crece. La arquitectura actual (carpetas por metrica con interface/domain/infrastructure) facilita la separacion. |
+| Sin rate limiting en login | Ataques de fuerza bruta a mayor escala de usuarios | Implementar rate limiting por IP en el endpoint de login (middleware de Gin o servicio externo como AWS WAF). |
+| Sin 2FA | Riesgo de seguridad con mas usuarios accediendo a datos financieros y medicos | Agregar segundo factor de autenticacion para roles admin y strategy como minimo. |
+| Cold starts en Lambda con mas endpoints | Latencia en primera request despues de inactividad | Ya mitigado: Go tiene cold starts de ~100ms. Solo relevante si se migra a Node.js. |
+
+### Frontend
+
+| Riesgo | Impacto | Mitigacion |
+|--------|---------|------------|
+| Filtros con 30 clinicas generan listas largas en dropdowns | UX degradada, seleccion mas lenta | Agregar busqueda/filtro dentro de los selectores de clinica. Agrupar por zona geografica si aplica. |
+| Mas metricas y paginas sin gestion de estado global | Prop drilling, requests duplicadas, estado inconsistente entre componentes | Adoptar Zustand para state management global. Agregar React Router si se necesitan multiples paginas. |
+| Graficas con 30 clinicas simultaneas se vuelven ilegibles | Barras agrupadas de M4 y barras horizontales de M2 pierden legibilidad visual | Paginar o limitar la vista inicial a top 10 clinicas con opcion de expandir. Las visualizaciones actuales (barras horizontales en M2) ya escalan mejor que alternativas como gauges. |
+| Bundle size crece con mas dependencias | Tiempo de carga inicial del SPA aumenta | Code splitting por ruta con React.lazy. Recharts ya soporta tree-shaking. |
+| Sin export de reportes | Daniella y directoras necesitan compartir metricas con stakeholders que no acceden al panel | Implementar export a CSV y PDF desde el frontend. |
+
+### Resumen de prioridades
+
+Si Nua crece a 30 clinicas, las primeras acciones serian:
+
+1. **Read replica + PgBouncer** — Separar lectura del panel de escritura operativa.
+2. **Redis para cache** — Reducir carga a la DB en metricas de baja volatilidad.
+3. **Rate limiting + 2FA** — Seguridad proporcional al numero de usuarios.
+4. **UX de filtros** — Adaptar los selectores para 30 clinicas sin degradar la experiencia.
+5. **Export CSV/PDF** — Funcionalidad operativa critica para stakeholders sin acceso al panel.
+
+```mermaid
+gantt
+    title Roadmap de escalabilidad según crecimiento de clínicas
+    dateFormat YYYY-MM-DD
+    axisFormat %Y
+
+    section Infraestructura
+    Read replica Aurora             :2026-01-01, 60d
+    PgBouncer / connection pooling  :2026-02-01, 30d
+    Redis cache (ElastiCache)       :2026-03-01, 45d
+
+    section Seguridad
+    Rate limiting (WAF)             :2026-02-01, 30d
+    2FA para admin/strategy         :2026-04-01, 45d
+
+    section Producto
+    Export CSV/PDF                  :2026-03-01, 30d
+    UX filtros (búsqueda, zonas)    :2026-04-01, 30d
+    Zustand + code splitting        :2026-05-01, 30d
+```

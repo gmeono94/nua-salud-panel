@@ -16,6 +16,20 @@ type Querier interface {
 	GetAppointmentsByPeriod(ctx context.Context, arg GetAppointmentsByPeriodParams) ([]GetAppointmentsByPeriodRow, error)
 	// M1: Totales de KPI para el período seleccionado
 	GetAppointmentsSummary(ctx context.Context, arg GetAppointmentsSummaryParams) (GetAppointmentsSummaryRow, error)
+	// M7: Ticket promedio global (monto promedio por cita completada con pago confirmado)
+	GetAvgTicket(ctx context.Context, arg GetAvgTicketParams) (GetAvgTicketRow, error)
+	// M7: Ticket promedio desglosado por clínica
+	GetAvgTicketByClinic(ctx context.Context, arg GetAvgTicketByClinicParams) ([]GetAvgTicketByClinicRow, error)
+	// M7: Ticket promedio desglosado por especialidad
+	GetAvgTicketBySpecialty(ctx context.Context, arg GetAvgTicketBySpecialtyParams) ([]GetAvgTicketBySpecialtyRow, error)
+	// M6: Tasa de cancelación/no-show por período (excluye agendadas del denominador)
+	GetCancellationRateByPeriod(ctx context.Context, arg GetCancellationRateByPeriodParams) ([]GetCancellationRateByPeriodRow, error)
+	// M6: Tasa global de cancelación/no-show en el período
+	GetCancellationRateSummary(ctx context.Context, arg GetCancellationRateSummaryParams) (GetCancellationRateSummaryRow, error)
+	// M8: Tamaño de cada cohorte (pacientes con primera cita en ese mes)
+	GetCohortSizes(ctx context.Context, arg GetCohortSizesParams) ([]GetCohortSizesRow, error)
+	// Rango de fechas con datos en citas
+	GetDateRange(ctx context.Context) (GetDateRangeRow, error)
 	// M3: Pacientes nuevas vs recurrentes en el período.
 	// Nueva = su primera cita completada en todo Nua cae dentro del rango.
 	GetNewVsReturning(ctx context.Context, arg GetNewVsReturningParams) (GetNewVsReturningRow, error)
@@ -25,6 +39,9 @@ type Querier interface {
 	GetOccupancyByClinic(ctx context.Context, arg GetOccupancyByClinicParams) ([]GetOccupancyByClinicRow, error)
 	// M2: Ocupación por doctora. Cada doctora recibe slots_per_day / doctoras_activas de su clínica.
 	GetOccupancyByDoctor(ctx context.Context, arg GetOccupancyByDoctorParams) ([]GetOccupancyByDoctorRow, error)
+	// M8: Cohortes de retención. Cada cohorte = mes de primera cita completada.
+	// Mide cuántos pacientes regresaron en meses +0, +1, +2, etc.
+	GetRetentionCohorts(ctx context.Context, arg GetRetentionCohortsParams) ([]GetRetentionCohortsRow, error)
 	// M4: Ingresos por clínica, desglosados por especialidad del servicio.
 	// Filtra por fecha de pago, no fecha de cita.
 	GetRevenueByClinic(ctx context.Context, arg GetRevenueByClinicParams) ([]GetRevenueByClinicRow, error)

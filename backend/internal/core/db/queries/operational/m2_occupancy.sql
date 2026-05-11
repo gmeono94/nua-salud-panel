@@ -18,7 +18,7 @@ SELECT
 FROM clinics c
 LEFT JOIN booked b ON b.clinic_id = c.id
 WHERE c.active = true
-  AND (sqlc.narg('clinic_id')::varchar IS NULL OR c.id = sqlc.narg('clinic_id'))
+  AND (sqlc.narg('clinic_id')::varchar IS NULL OR c.id = ANY(string_to_array(sqlc.narg('clinic_id')::varchar, ',')))
 ORDER BY occupancy_rate DESC;
 
 -- name: GetOccupancyByDoctor :many
@@ -58,6 +58,6 @@ SELECT
     END AS occupancy_rate
 FROM doctor_slots ds
 LEFT JOIN booked b ON b.doctor_id = ds.doctor_id
-WHERE (sqlc.narg('clinic_id')::varchar IS NULL OR ds.clinic_id = sqlc.narg('clinic_id'))
+WHERE (sqlc.narg('clinic_id')::varchar IS NULL OR ds.clinic_id = ANY(string_to_array(sqlc.narg('clinic_id')::varchar, ',')))
   AND (sqlc.narg('specialty')::specialty IS NULL OR ds.specialty::specialty = sqlc.narg('specialty'))
 ORDER BY occupancy_rate DESC;

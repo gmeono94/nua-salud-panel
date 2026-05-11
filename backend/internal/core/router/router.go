@@ -10,6 +10,7 @@ import (
 	"github.com/gmeono94/nua-salud-panel/backend/internal/core/db"
 	"github.com/gmeono94/nua-salud-panel/backend/internal/core/db/dashboardsqlc"
 	"github.com/gmeono94/nua-salud-panel/backend/internal/core/db/operationalsqlc"
+	"github.com/gmeono94/nua-salud-panel/backend/internal/core/middlewares"
 )
 
 // Setup crea y configura el router Gin con middlewares y rutas.
@@ -17,9 +18,9 @@ func Setup() *gin.Engine {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:5175"},
 		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-API-Key"},
 		AllowCredentials: true,
 	}))
 
@@ -32,8 +33,16 @@ func Setup() *gin.Engine {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	auth.Setup(v1, dashboardQueries)
-	metrics.Setup(v1, operationalQueries)
+	// Auth — requiere API key pero no JWT (es donde se obtiene el JWT)
+	authGroup := v1.Group("")
+	authGroup.Use(middlewares.APIKeyMiddleware(dashboardQueries))
+	auth.Setup(authGroup, dashboardQueries)
+
+	// Métricas y filtros — requieren API key + JWT
+	protected := v1.Group("")
+	protected.Use(middlewares.APIKeyMiddleware(dashboardQueries))
+	protected.Use(middlewares.AuthMiddleware())
+	metrics.Setup(protected, operationalQueries)
 
 	return r
 }

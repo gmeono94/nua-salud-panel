@@ -11,6 +11,26 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getDateRange = `-- name: GetDateRange :one
+SELECT
+    MIN(date)::date AS min_date,
+    MAX(date)::date AS max_date
+FROM appointments
+`
+
+type GetDateRangeRow struct {
+	MinDate pgtype.Date `json:"min_date"`
+	MaxDate pgtype.Date `json:"max_date"`
+}
+
+// Rango de fechas con datos en citas
+func (q *Queries) GetDateRange(ctx context.Context) (GetDateRangeRow, error) {
+	row := q.db.QueryRow(ctx, getDateRange)
+	var i GetDateRangeRow
+	err := row.Scan(&i.MinDate, &i.MaxDate)
+	return i, err
+}
+
 const listClinics = `-- name: ListClinics :many
 SELECT id, name FROM clinics WHERE active = true ORDER BY name
 `
@@ -45,7 +65,7 @@ const listDoctors = `-- name: ListDoctors :many
 SELECT d.id, d.name, d.specialty, d.clinic_id
 FROM doctors d
 WHERE d.active = true
-  AND ($1::varchar IS NULL OR d.clinic_id = $1)
+  AND ($1::varchar IS NULL OR d.clinic_id = ANY(string_to_array($1::varchar, ',')))
 ORDER BY d.name
 `
 

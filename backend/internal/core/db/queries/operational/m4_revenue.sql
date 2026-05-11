@@ -12,7 +12,7 @@ JOIN clinics c ON c.id = a.clinic_id
 JOIN services s ON s.id = a.service_id
 WHERE p.payment_date BETWEEN @date_from::date AND @date_to::date
   AND p.status = 'completado'
-  AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = sqlc.narg('clinic_id'))
+  AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = ANY(string_to_array(sqlc.narg('clinic_id')::varchar, ',')))
   AND (sqlc.narg('specialty')::specialty IS NULL OR s.specialty = sqlc.narg('specialty'))
 GROUP BY c.id, c.name, s.specialty
 ORDER BY c.name, s.specialty;
@@ -25,5 +25,5 @@ JOIN appointments a ON a.id = p.appointment_id
 JOIN services s ON s.id = a.service_id
 WHERE p.payment_date BETWEEN @date_from::date AND @date_to::date
   AND p.status = 'completado'
-  AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = sqlc.narg('clinic_id'))
+  AND (sqlc.narg('clinic_id')::varchar IS NULL OR a.clinic_id = ANY(string_to_array(sqlc.narg('clinic_id')::varchar, ',')))
   AND (sqlc.narg('specialty')::specialty IS NULL OR s.specialty = sqlc.narg('specialty'));

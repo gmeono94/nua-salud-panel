@@ -23,7 +23,7 @@ JOIN doctors d ON d.id = a.doctor_id
 JOIN clinics c ON c.id = d.clinic_id
 WHERE a.status = 'completada'
   AND a.date BETWEEN $1::date AND $2::date
-  AND ($3::varchar IS NULL OR a.clinic_id = $3)
+  AND ($3::varchar IS NULL OR a.clinic_id = ANY(string_to_array($3::varchar, ',')))
   AND ($4::specialty IS NULL OR d.specialty = $4)
 GROUP BY d.id, d.name, d.specialty, c.name
 ORDER BY completed_appointments DESC

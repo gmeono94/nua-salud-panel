@@ -13,6 +13,8 @@ import (
 type Querier interface {
 	// Asignar una clínica a un usuario
 	AssignClinicToUser(ctx context.Context, arg AssignClinicToUserParams) error
+	// Crea una nueva API key
+	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (CreateAPIKeyRow, error)
 	// Registrar una acción en la bitácora
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) error
 	// Almacenar un nuevo refresh token
@@ -41,6 +43,8 @@ type Querier interface {
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
 	// Actualizar datos de un usuario
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (UpdateUserRow, error)
+	// Busca una API key activa por su hash y actualiza last_used
+	ValidateAPIKey(ctx context.Context, keyHash string) (ValidateAPIKeyRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

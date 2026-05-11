@@ -24,7 +24,7 @@ period_patients AS (
     JOIN first_visit fv ON fv.patient_id = a.patient_id
     WHERE a.status = 'completada'
       AND a.date BETWEEN $1::date AND $2::date
-      AND ($3::varchar IS NULL OR a.clinic_id = $3)
+      AND ($3::varchar IS NULL OR a.clinic_id = ANY(string_to_array($3::varchar, ',')))
 )
 SELECT
     COUNT(*) FILTER (WHERE first_date BETWEEN $1::date AND $2::date) AS new_patients,
@@ -69,7 +69,7 @@ FROM appointments a
 JOIN first_visit fv ON fv.patient_id = a.patient_id
 WHERE a.status = 'completada'
   AND a.date BETWEEN $1::date AND $2::date
-  AND ($3::varchar IS NULL OR a.clinic_id = $3)
+  AND ($3::varchar IS NULL OR a.clinic_id = ANY(string_to_array($3::varchar, ',')))
 GROUP BY month
 ORDER BY month
 `

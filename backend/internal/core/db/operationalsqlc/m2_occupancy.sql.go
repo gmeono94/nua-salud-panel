@@ -30,7 +30,7 @@ SELECT
 FROM clinics c
 LEFT JOIN booked b ON b.clinic_id = c.id
 WHERE c.active = true
-  AND ($2::varchar IS NULL OR c.id = $2)
+  AND ($2::varchar IS NULL OR c.id = ANY(string_to_array($2::varchar, ',')))
 ORDER BY occupancy_rate DESC
 `
 
@@ -117,7 +117,7 @@ SELECT
     END AS occupancy_rate
 FROM doctor_slots ds
 LEFT JOIN booked b ON b.doctor_id = ds.doctor_id
-WHERE ($2::varchar IS NULL OR ds.clinic_id = $2)
+WHERE ($2::varchar IS NULL OR ds.clinic_id = ANY(string_to_array($2::varchar, ',')))
   AND ($3::specialty IS NULL OR ds.specialty::specialty = $3)
 ORDER BY occupancy_rate DESC
 `

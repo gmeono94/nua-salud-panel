@@ -204,6 +204,154 @@ func (ctrl *Controller) TopDoctors(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": data})
 }
 
+// CancellationRate — M6: Tasa de cancelación/no-show.
+// GET /api/v1/metrics/cancellation-rate?date_from=&date_to=&group_by=month&clinic_id=&doctor_id=&specialty=
+func (ctrl *Controller) CancellationRate(c *gin.Context) {
+	dr, err := filters.ParseDateRange(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "date_from y date_to son requeridos (YYYY-MM-DD)"})
+		return
+	}
+
+	groupBy := c.DefaultQuery("group_by", "month")
+	clinicID := filters.OptionalText(c, "clinic_id")
+	doctorID := filters.OptionalText(c, "doctor_id")
+	specialty := filters.OptionalSpecialty(c, "specialty")
+
+	data, err := ctrl.q.GetCancellationRateByPeriod(c.Request.Context(), operationalsqlc.GetCancellationRateByPeriodParams{
+		GroupBy:   groupBy,
+		DateFrom:  dr.From,
+		DateTo:    dr.To,
+		ClinicID:  clinicID,
+		DoctorID:  doctorID,
+		Specialty: specialty,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando tasa de cancelación"})
+		return
+	}
+
+	summary, err := ctrl.q.GetCancellationRateSummary(c.Request.Context(), operationalsqlc.GetCancellationRateSummaryParams{
+		DateFrom:  dr.From,
+		DateTo:    dr.To,
+		ClinicID:  clinicID,
+		DoctorID:  doctorID,
+		Specialty: specialty,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando resumen de cancelación"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"summary": summary,
+		"data":    data,
+	})
+}
+
+// AvgTicket — M7: Ticket promedio por cita completada.
+// GET /api/v1/metrics/avg-ticket?date_from=&date_to=&clinic_id=&specialty=
+func (ctrl *Controller) AvgTicket(c *gin.Context) {
+	dr, err := filters.ParseDateRange(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "date_from y date_to son requeridos (YYYY-MM-DD)"})
+		return
+	}
+
+	clinicID := filters.OptionalText(c, "clinic_id")
+	specialty := filters.OptionalSpecialty(c, "specialty")
+
+	summary, err := ctrl.q.GetAvgTicket(c.Request.Context(), operationalsqlc.GetAvgTicketParams{
+		DateFrom:  dr.From,
+		DateTo:    dr.To,
+		ClinicID:  clinicID,
+		Specialty: specialty,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando ticket promedio"})
+		return
+	}
+
+	byClinic, err := ctrl.q.GetAvgTicketByClinic(c.Request.Context(), operationalsqlc.GetAvgTicketByClinicParams{
+		DateFrom:  dr.From,
+		DateTo:    dr.To,
+		ClinicID:  clinicID,
+		Specialty: specialty,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando ticket por clínica"})
+		return
+	}
+
+	bySpecialty, err := ctrl.q.GetAvgTicketBySpecialty(c.Request.Context(), operationalsqlc.GetAvgTicketBySpecialtyParams{
+		DateFrom:  dr.From,
+		DateTo:    dr.To,
+		ClinicID:  clinicID,
+		Specialty: specialty,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando ticket por especialidad"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"summary":      summary,
+		"by_clinic":    byClinic,
+		"by_specialty": bySpecialty,
+	})
+}
+
+// RetentionCohorts — M8: Cohortes de retención de pacientes.
+// GET /api/v1/metrics/retention-cohorts?date_from=&date_to=&clinic_id=
+func (ctrl *Controller) RetentionCohorts(c *gin.Context) {
+	dr, err := filters.ParseDateRange(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "date_from y date_to son requeridos (YYYY-MM-DD)"})
+		return
+	}
+
+	clinicID := filters.OptionalText(c, "clinic_id")
+
+	cohorts, err := ctrl.q.GetRetentionCohorts(c.Request.Context(), operationalsqlc.GetRetentionCohortsParams{
+		DateFrom: dr.From,
+		DateTo:   dr.To,
+		ClinicID: clinicID,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando cohortes de retención"})
+		return
+	}
+
+	sizes, err := ctrl.q.GetCohortSizes(c.Request.Context(), operationalsqlc.GetCohortSizesParams{
+		DateFrom: dr.From,
+		DateTo:   dr.To,
+		ClinicID: clinicID,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando tamaño de cohortes"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"cohorts": cohorts,
+		"sizes":   sizes,
+	})
+}
+
+// DateRange — Rango de fechas con datos disponibles.
+// GET /api/v1/filters/date-range
+func (ctrl *Controller) DateRange(c *gin.Context) {
+	row, err := ctrl.q.GetDateRange(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error obteniendo rango de fechas"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"min_date": row.MinDate.Time.Format("2006-01-02"),
+		"max_date": row.MaxDate.Time.Format("2006-01-02"),
+	})
+}
+
 // ListClinics — Clínicas activas para el selector de filtros.
 // GET /api/v1/filters/clinics
 func (ctrl *Controller) ListClinics(c *gin.Context) {
