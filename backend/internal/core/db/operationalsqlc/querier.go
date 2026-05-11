@@ -21,9 +21,10 @@ type Querier interface {
 	GetNewVsReturning(ctx context.Context, arg GetNewVsReturningParams) (GetNewVsReturningRow, error)
 	// M3: Desglose mensual de nuevas vs recurrentes
 	GetNewVsReturningByMonth(ctx context.Context, arg GetNewVsReturningByMonthParams) ([]GetNewVsReturningByMonthRow, error)
-	// M2: Tasa de ocupación por clínica.
-	// Recibe días_en_rango precalculado desde Go para evitar aritmética de fechas en sqlc.
+	// M2: Ocupación por clínica. slots_per_day es la capacidad total de la clínica.
 	GetOccupancyByClinic(ctx context.Context, arg GetOccupancyByClinicParams) ([]GetOccupancyByClinicRow, error)
+	// M2: Ocupación por doctora. Cada doctora recibe slots_per_day / doctoras_activas de su clínica.
+	GetOccupancyByDoctor(ctx context.Context, arg GetOccupancyByDoctorParams) ([]GetOccupancyByDoctorRow, error)
 	// M4: Ingresos por clínica, desglosados por especialidad del servicio.
 	// Filtra por fecha de pago, no fecha de cita.
 	GetRevenueByClinic(ctx context.Context, arg GetRevenueByClinicParams) ([]GetRevenueByClinicRow, error)
