@@ -63,7 +63,7 @@ seed-users:
 # Seed de datos operativos desde CSV
 .PHONY: seed
 seed:
-	@echo "TODO: implementar cuando se reciba el CSV"
+	go run ./cmd/seed-operational/main.go
 
 # Ejecutar tests
 .PHONY: test
