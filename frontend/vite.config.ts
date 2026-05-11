@@ -5,4 +5,10 @@ import tailwindcss from '@tailwindcss/vite'
 // Configuración de Vite con React y Tailwind CSS v4
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    host: '0.0.0.0',
+    watch: {
+      usePolling: true,
+    },
+  },
 })

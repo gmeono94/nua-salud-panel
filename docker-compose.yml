@@ -1,0 +1,79 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nua-salud-db
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: nua
+      POSTGRES_PASSWORD: nua_secret
+      POSTGRES_DB: nua_salud
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nua -d nua_salud"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  migrate-seed:
+    build: ./backend
+    container_name: nua-migrate-seed
+    command: sh /app/scripts/migrate-and-seed.sh
+    volumes:
+      - ./backend:/app
+      - ./data:/data
+      - go-modules:/go/pkg/mod
+    environment:
+      DATABASE_URL: postgresql://nua:nua_secret@postgres:5432/nua_salud?sslmode=disable
+      DASHBOARD_DATABASE_URL: postgresql://nua:nua_secret@postgres:5432/nua_dashboard?sslmode=disable
+      JWT_SECRET: dev-jwt-secret-min-32-chars-docker
+      JWT_REFRESH_SECRET: dev-refresh-secret-min-32-chars-docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    build: ./backend
+    container_name: nua-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend:/app
+      - ./data:/data
+      - go-modules:/go/pkg/mod
+      - backend-tmp:/app/tmp
+    environment:
+      ENVIRONMENT: local
+      PORT: "3001"
+      DATABASE_URL: postgresql://nua:nua_secret@postgres:5432/nua_salud?sslmode=disable
+      DASHBOARD_DATABASE_URL: postgresql://nua:nua_secret@postgres:5432/nua_dashboard?sslmode=disable
+      JWT_SECRET: dev-jwt-secret-min-32-chars-docker
+      JWT_REFRESH_SECRET: dev-refresh-secret-min-32-chars-docker
+    depends_on:
+      migrate-seed:
+        condition: service_completed_successfully
+
+  frontend:
+    build: ./frontend
+    container_name: nua-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    environment:
+      VITE_API_URL: http://localhost:3001/api/v1
+      VITE_API_KEY: nua_mk_d3v_t3st_2025_local
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  go-modules:
+  frontend-node-modules:
+  backend-tmp:
