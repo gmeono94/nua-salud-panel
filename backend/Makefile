@@ -1,7 +1,7 @@
 # Variables
 BINARY_NAME=nua-panel
-DB_URL=postgresql://nua:nua_secret@localhost:5432/nua_salud?sslmode=disable
-DASHBOARD_DB_URL=postgresql://nua:nua_secret@localhost:5432/nua_dashboard?sslmode=disable
+DB_URL=postgresql://nua:nua_secret@localhost:5433/nua_salud?sslmode=disable
+DASHBOARD_DB_URL=postgresql://nua:nua_secret@localhost:5433/nua_dashboard?sslmode=disable
 MIGRATIONS_DIR=./internal/core/db/migrations/operational
 DASHBOARD_MIGRATIONS_DIR=./internal/core/db/migrations/dashboard
 
