@@ -72,6 +72,29 @@ services:
     depends_on:
       - backend
 
+  backend-test:
+    build: ./backend
+    container_name: nua-backend-test
+    profiles: [test]
+    command: go test ./... -v -count=1
+    volumes:
+      - ./backend:/app
+      - go-modules:/go/pkg/mod
+    environment:
+      DATABASE_URL: postgresql://nua:nua_secret@postgres:5432/nua_salud?sslmode=disable
+      DASHBOARD_DATABASE_URL: postgresql://nua:nua_secret@postgres:5432/nua_dashboard?sslmode=disable
+      JWT_SECRET: dev-jwt-secret-min-32-chars-docker
+      JWT_REFRESH_SECRET: dev-refresh-secret-min-32-chars-docker
+
+  frontend-test:
+    build: ./frontend
+    container_name: nua-frontend-test
+    profiles: [test]
+    command: bun run test
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+
 volumes:
   pgdata:
   go-modules:

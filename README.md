@@ -643,6 +643,51 @@ docker compose down -v       # Detiene contenedores y elimina volúmenes (reset 
 | `make sqlc` | Genera código Go desde queries SQL |
 | `make seed` | Importa datos del CSV |
 
+## Tests
+
+El proyecto incluye tests unitarios para backend (Go) y frontend (Vitest), ejecutables localmente o via Docker.
+
+### Ejecución local
+
+```bash
+# Backend (Go)
+cd backend && make test
+
+# Frontend (Vitest)
+cd frontend && npm test
+```
+
+### Ejecución con Docker
+
+```bash
+# Backend tests
+docker compose --profile test run --rm backend-test
+
+# Frontend tests
+docker compose --profile test run --rm frontend-test
+
+# Ambos en paralelo
+docker compose --profile test up
+```
+
+### Cobertura
+
+**Backend — 30 tests**
+
+| Paquete | Tests | Qué cubre |
+|---------|-------|-----------|
+| `middlewares` | 11 | RBAC por clínica (8), request ID (3) |
+| `filters` | 9 | Parseo de fechas, validación de rango, params opcionales |
+| `auth/services` | 11 | JWT generate/validate, refresh tokens, password hash/verify |
+
+**Frontend — 11 tests**
+
+| Archivo | Tests | Qué cubre |
+|---------|-------|-----------|
+| `ErrorBoundary` | 3 | Render normal, fallback en error, recuperación |
+| `constants/colors` | 4 | Formato hex válido, paridad HEX/CHIPS |
+| `constants/labels` | 4 | Roles, acciones, recursos definidos |
+
 ## Escalabilidad: de 5 a 30 clinicas — plataforma completa
 
 Nua opera hoy con 5 clínicas, 6 desarrolladores Node.js, y un stack centrado en MongoDB + microservicios. El plan de expansión a 30 clínicas impacta toda la plataforma, no solo el panel operativo. Esta sección analiza los riesgos y mitigaciones por capa, desde la infraestructura compartida hasta cada producto.
@@ -805,19 +850,19 @@ gantt
     axisFormat %Y-%m
 
     section Fase 1 (ya hecho)
-    Panel en PostgreSQL      :done, 2026-05-01, 30d
+    Panel → PG           :done, 2026-05-01, 30d
 
     section Fase 2
-    Citas → PostgreSQL       :2026-08-01, 75d
-    Pagos → PostgreSQL       :2026-10-15, 75d
+    Citas → PG           :2026-08-01, 75d
+    Pagos → PG           :2026-10-15, 75d
 
     section Fase 3
-    Scheduling → PostgreSQL  :2027-01-01, 60d
-    Catálogos → PostgreSQL   :2027-03-01, 45d
+    Scheduling → PG      :2027-01-01, 60d
+    Catálogos → PG       :2027-03-01, 45d
 
-    section MongoDB se queda
-    Expedientes clínicos     :milestone, 2027-06-01, 0d
-    Notas médicas            :milestone, 2027-06-01, 0d
+    section MongoDB (se queda)
+    Expedientes          :milestone, 2027-06-01, 0d
+    Notas médicas        :milestone, 2027-06-01, 0d
 ```
 
 > **El EHR se queda en MongoDB** — es el caso de uso correcto. Lo que migra a PostgreSQL son los datos transaccionales (citas, pagos, scheduling, catálogos) que necesitan integridad referencial y JOINs eficientes. El resultado es que cada motor hace lo que mejor sabe hacer.
@@ -1102,8 +1147,8 @@ gantt
     API Gateway + WAF     :2026-07-01, 45d
     ECS auto-scaling      :2026-07-01, 30d
     CI/CD por servicio    :2026-08-01, 45d
-    Citas → PostgreSQL    :2026-08-01, 75d
-    Pagos → PostgreSQL    :2026-10-15, 75d
+    Citas → PG            :2026-08-01, 75d
+    Pagos → PG            :2026-10-15, 75d
 
     section 15-20 clinicas
     Mongo sharding        :2027-01-01, 45d
