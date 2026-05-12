@@ -1,4 +1,5 @@
 // M7: Ticket promedio por cita completada
+import { memo } from 'react'
 import {
   ResponsiveContainer,
   BarChart,
@@ -12,19 +13,14 @@ import { useMetric } from '../../hooks/useMetric'
 import { fetchAvgTicket } from '../../services/api'
 import type { AvgTicketResponse } from '../../types/api'
 import { formatMXN } from '../../utils/format'
+import { SPECIALTY_HEX } from '../../constants/colors'
 import ChartCard from '../ui/ChartCard'
-
-const SPECIALTY_COLORS: Record<string, string> = {
-  ginecologia: '#7c3aed',
-  obstetricia: '#4f46e5',
-  menopausia: '#f59e0b',
-}
 
 interface Props {
   mini?: boolean
 }
 
-export default function AvgTicketChart({ mini }: Props) {
+function AvgTicketChart({ mini }: Props) {
   const { data, loading, error } = useMetric<AvgTicketResponse>(
     fetchAvgTicket,
     { includeFilters: ['clinic_id', 'specialty', 'dates'] }
@@ -112,7 +108,7 @@ export default function AvgTicketChart({ mini }: Props) {
                     key={s.specialty}
                     className="flex-1 rounded-xl p-3 bg-gray-50 text-center"
                   >
-                    <p className="text-lg font-semibold" style={{ color: SPECIALTY_COLORS[s.specialty] || '#7c3aed' }}>
+                    <p className="text-lg font-semibold" style={{ color: SPECIALTY_HEX[s.specialty] || '#7c3aed' }}>
                       {formatMXN(s.avg_ticket)}
                     </p>
                     <p className="text-xs text-gray-500 capitalize mt-0.5">
@@ -128,3 +124,5 @@ export default function AvgTicketChart({ mini }: Props) {
     </ChartCard>
   )
 }
+
+export default memo(AvgTicketChart)

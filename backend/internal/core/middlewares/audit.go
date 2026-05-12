@@ -4,8 +4,10 @@ package middlewares
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/netip"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -57,6 +59,12 @@ func AuditMiddleware(q *dashboardsqlc.Queries) gin.HandlerFunc {
 			params.IpAddress = &addr
 		}
 
-		go q.CreateAuditLog(context.Background(), params)
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := q.CreateAuditLog(ctx, params); err != nil {
+				log.Printf("audit: error registrando log: %v", err)
+			}
+		}()
 	}
 }

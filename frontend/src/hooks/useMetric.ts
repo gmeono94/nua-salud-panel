@@ -86,7 +86,8 @@ export function useMetric<T>(
   }, [queryKey, ready])
 
   useEffect(() => {
-    fetchData()
+    const id = setTimeout(fetchData, 300)
+    return () => clearTimeout(id)
   }, [fetchData])
 
   return { data, loading, error, refetch: fetchData }

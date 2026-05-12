@@ -1,5 +1,5 @@
 // M6: Tasa de cancelación/no-show por período
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import {
   ResponsiveContainer,
   LineChart,
@@ -18,7 +18,7 @@ interface Props {
   mini?: boolean
 }
 
-export default function CancellationRateChart({ mini }: Props) {
+function CancellationRateChart({ mini }: Props) {
   const [groupBy, setGroupBy] = useState<'day' | 'week' | 'month'>('month')
 
   const { data, loading, error } = useMetric<CancellationRateResponse>(
@@ -132,3 +132,5 @@ export default function CancellationRateChart({ mini }: Props) {
     </ChartCard>
   )
 }
+
+export default memo(CancellationRateChart)

@@ -2,8 +2,9 @@
 package audit
 
 import (
+	"encoding/hex"
 	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -15,7 +16,17 @@ import (
 )
 
 func formatUUID(b [16]byte) string {
-	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+	var buf [36]byte
+	hex.Encode(buf[0:8], b[0:4])
+	buf[8] = '-'
+	hex.Encode(buf[9:13], b[4:6])
+	buf[13] = '-'
+	hex.Encode(buf[14:18], b[6:8])
+	buf[18] = '-'
+	hex.Encode(buf[19:23], b[8:10])
+	buf[23] = '-'
+	hex.Encode(buf[24:], b[10:])
+	return string(buf[:])
 }
 
 type Controller struct {
@@ -63,6 +74,7 @@ func (ctrl *Controller) List(c *gin.Context) {
 
 	rows, err := ctrl.q.ListAuditLogs(c.Request.Context(), params)
 	if err != nil {
+		log.Printf("Error consultando bitácora: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando bitácora"})
 		return
 	}

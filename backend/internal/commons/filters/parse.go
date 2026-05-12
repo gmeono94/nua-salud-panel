@@ -2,6 +2,7 @@
 package filters
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -30,6 +31,10 @@ func ParseDateRange(c *gin.Context) (DateRange, error) {
 	to, err := time.Parse("2006-01-02", toStr)
 	if err != nil {
 		return DateRange{}, err
+	}
+
+	if to.Before(from) {
+		return DateRange{}, fmt.Errorf("date_to no puede ser anterior a date_from")
 	}
 
 	days := int32(to.Sub(from).Hours()/24) + 1

@@ -76,11 +76,10 @@ export default function KpiSummaryBar() {
   // Calcular ocupación promedio
   const avgOccupancy = (() => {
     if (!occupancy.data?.data || !Array.isArray(occupancy.data.data)) return 0
-    const rates = (occupancy.data.data as Array<{ occupancy_rate: number }>).map(
-      (d) => d.occupancy_rate
-    )
-    if (rates.length === 0) return 0
-    return Math.round(rates.reduce((a, b) => a + b, 0) / rates.length)
+    const items = occupancy.data.data
+    if (items.length === 0) return 0
+    const sum = items.reduce((acc, d) => acc + d.occupancy_rate, 0)
+    return Math.round(sum / items.length)
   })()
 
   return (
