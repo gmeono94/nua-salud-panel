@@ -16,6 +16,14 @@ export default function GlobalFilters() {
     setFilter('clinic_id', ids.join(','))
   }
 
+  const selectedSpecialtyIds = filters.specialty
+    ? filters.specialty.split(',')
+    : []
+
+  const handleSpecialtyChange = (ids: string[]) => {
+    setFilter('specialty', ids.join(','))
+  }
+
   return (
     <div className="sticky top-0 z-30 bg-[#f8f9fc]/80 backdrop-blur-lg border-b border-gray-100 py-4">
       <div className="max-w-[1400px] mx-auto px-6 flex flex-wrap items-end gap-4">
@@ -40,11 +48,11 @@ export default function GlobalFilters() {
           placeholder="Todas las doctoras"
         />
 
-        {/* Especialidad */}
-        <SelectFilter
+        {/* Especialidad — selección múltiple */}
+        <MultiSelectFilter
           label="Especialidad"
-          value={filters.specialty}
-          onChange={(v) => setFilter('specialty', v)}
+          value={selectedSpecialtyIds}
+          onChange={handleSpecialtyChange}
           options={specialties.map((s) => ({
             value: s,
             label: s.charAt(0).toUpperCase() + s.slice(1),

@@ -118,16 +118,16 @@ SELECT
 FROM doctor_slots ds
 LEFT JOIN booked b ON b.doctor_id = ds.doctor_id
 WHERE ($2::varchar IS NULL OR ds.clinic_id = ANY(string_to_array($2::varchar, ',')))
-  AND ($3::specialty IS NULL OR ds.specialty::specialty = $3)
+  AND ($3::varchar IS NULL OR ds.specialty = ANY(string_to_array($3::varchar, ',')))
 ORDER BY occupancy_rate DESC
 `
 
 type GetOccupancyByDoctorParams struct {
-	TotalDays int32         `json:"total_days"`
-	ClinicID  pgtype.Text   `json:"clinic_id"`
-	Specialty NullSpecialty `json:"specialty"`
-	DateFrom  pgtype.Date   `json:"date_from"`
-	DateTo    pgtype.Date   `json:"date_to"`
+	TotalDays int32       `json:"total_days"`
+	ClinicID  pgtype.Text `json:"clinic_id"`
+	Specialty pgtype.Text `json:"specialty"`
+	DateFrom  pgtype.Date `json:"date_from"`
+	DateTo    pgtype.Date `json:"date_to"`
 }
 
 type GetOccupancyByDoctorRow struct {

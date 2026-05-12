@@ -98,6 +98,8 @@ export default function AppointmentsChart({ mini }: Props) {
       {/* Gráfica de área */}
       <ChartCard
         title="Citas por periodo"
+        subtitle={mini && data?.summary ? data.summary.total.toLocaleString('es-MX') + ' citas' : undefined}
+        compact={mini}
         delay={200}
         loading={loading}
         error={error}
@@ -122,7 +124,7 @@ export default function AppointmentsChart({ mini }: Props) {
         }
       >
         {data?.data && data.data.length > 0 ? (
-          <ResponsiveContainer width="100%" height={mini ? 160 : 320}>
+          <ResponsiveContainer width="100%" height={mini ? 150 : 320}>
             <AreaChart data={data.data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="gradCompleted" x1="0" y1="0" x2="0" y2="1">

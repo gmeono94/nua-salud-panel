@@ -59,5 +59,5 @@ SELECT
 FROM doctor_slots ds
 LEFT JOIN booked b ON b.doctor_id = ds.doctor_id
 WHERE (sqlc.narg('clinic_id')::varchar IS NULL OR ds.clinic_id = ANY(string_to_array(sqlc.narg('clinic_id')::varchar, ',')))
-  AND (sqlc.narg('specialty')::specialty IS NULL OR ds.specialty::specialty = sqlc.narg('specialty'))
+  AND (sqlc.narg('specialty')::varchar IS NULL OR ds.specialty = ANY(string_to_array(sqlc.narg('specialty')::varchar, ',')))
 ORDER BY occupancy_rate DESC;

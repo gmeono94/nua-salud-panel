@@ -20,12 +20,9 @@ function ClickableSection({
       onClick={() => navigate(to)}
       className="cursor-pointer group h-full"
     >
-      <div className="group-hover:ring-2 group-hover:ring-violet-200 rounded-2xl transition-all h-full [&>*]:h-full [&>*]:flex [&>*]:flex-col">
+      <div className="group-hover:ring-2 group-hover:ring-violet-200 rounded-2xl transition-all h-full [&>div]:h-full">
         {children}
       </div>
-      <p className="text-xs text-violet-500 opacity-0 group-hover:opacity-100 transition-opacity mt-1 text-right pr-2">
-        Ver detalle
-      </p>
     </div>
   )
 }

@@ -24,16 +24,16 @@ JOIN services s ON s.id = a.service_id
 WHERE p.payment_date BETWEEN $1::date AND $2::date
   AND p.status = 'completado'
   AND ($3::varchar IS NULL OR a.clinic_id = ANY(string_to_array($3::varchar, ',')))
-  AND ($4::specialty IS NULL OR s.specialty = $4)
+  AND ($4::varchar IS NULL OR s.specialty::text = ANY(string_to_array($4::varchar, ',')))
 GROUP BY c.id, c.name, s.specialty
 ORDER BY c.name, s.specialty
 `
 
 type GetRevenueByClinicParams struct {
-	DateFrom  pgtype.Date   `json:"date_from"`
-	DateTo    pgtype.Date   `json:"date_to"`
-	ClinicID  pgtype.Text   `json:"clinic_id"`
-	Specialty NullSpecialty `json:"specialty"`
+	DateFrom  pgtype.Date `json:"date_from"`
+	DateTo    pgtype.Date `json:"date_to"`
+	ClinicID  pgtype.Text `json:"clinic_id"`
+	Specialty pgtype.Text `json:"specialty"`
 }
 
 type GetRevenueByClinicRow struct {
@@ -83,14 +83,14 @@ JOIN services s ON s.id = a.service_id
 WHERE p.payment_date BETWEEN $1::date AND $2::date
   AND p.status = 'completado'
   AND ($3::varchar IS NULL OR a.clinic_id = ANY(string_to_array($3::varchar, ',')))
-  AND ($4::specialty IS NULL OR s.specialty = $4)
+  AND ($4::varchar IS NULL OR s.specialty::text = ANY(string_to_array($4::varchar, ',')))
 `
 
 type GetRevenueSummaryParams struct {
-	DateFrom  pgtype.Date   `json:"date_from"`
-	DateTo    pgtype.Date   `json:"date_to"`
-	ClinicID  pgtype.Text   `json:"clinic_id"`
-	Specialty NullSpecialty `json:"specialty"`
+	DateFrom  pgtype.Date `json:"date_from"`
+	DateTo    pgtype.Date `json:"date_to"`
+	ClinicID  pgtype.Text `json:"clinic_id"`
+	Specialty pgtype.Text `json:"specialty"`
 }
 
 // M4: Total de ingresos en el período

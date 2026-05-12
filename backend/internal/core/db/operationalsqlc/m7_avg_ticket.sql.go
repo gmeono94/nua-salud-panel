@@ -23,14 +23,14 @@ WHERE a.status = 'completada'
   AND p.status = 'completado'
   AND p.payment_date BETWEEN $1::date AND $2::date
   AND ($3::varchar IS NULL OR a.clinic_id = ANY(string_to_array($3::varchar, ',')))
-  AND ($4::specialty IS NULL OR s.specialty = $4)
+  AND ($4::varchar IS NULL OR s.specialty::text = ANY(string_to_array($4::varchar, ',')))
 `
 
 type GetAvgTicketParams struct {
-	DateFrom  pgtype.Date   `json:"date_from"`
-	DateTo    pgtype.Date   `json:"date_to"`
-	ClinicID  pgtype.Text   `json:"clinic_id"`
-	Specialty NullSpecialty `json:"specialty"`
+	DateFrom  pgtype.Date `json:"date_from"`
+	DateTo    pgtype.Date `json:"date_to"`
+	ClinicID  pgtype.Text `json:"clinic_id"`
+	Specialty pgtype.Text `json:"specialty"`
 }
 
 type GetAvgTicketRow struct {
@@ -66,16 +66,16 @@ WHERE a.status = 'completada'
   AND p.status = 'completado'
   AND p.payment_date BETWEEN $1::date AND $2::date
   AND ($3::varchar IS NULL OR a.clinic_id = ANY(string_to_array($3::varchar, ',')))
-  AND ($4::specialty IS NULL OR s.specialty = $4)
+  AND ($4::varchar IS NULL OR s.specialty::text = ANY(string_to_array($4::varchar, ',')))
 GROUP BY c.id, c.name
 ORDER BY avg_ticket DESC
 `
 
 type GetAvgTicketByClinicParams struct {
-	DateFrom  pgtype.Date   `json:"date_from"`
-	DateTo    pgtype.Date   `json:"date_to"`
-	ClinicID  pgtype.Text   `json:"clinic_id"`
-	Specialty NullSpecialty `json:"specialty"`
+	DateFrom  pgtype.Date `json:"date_from"`
+	DateTo    pgtype.Date `json:"date_to"`
+	ClinicID  pgtype.Text `json:"clinic_id"`
+	Specialty pgtype.Text `json:"specialty"`
 }
 
 type GetAvgTicketByClinicRow struct {
@@ -128,16 +128,16 @@ WHERE a.status = 'completada'
   AND p.status = 'completado'
   AND p.payment_date BETWEEN $1::date AND $2::date
   AND ($3::varchar IS NULL OR a.clinic_id = ANY(string_to_array($3::varchar, ',')))
-  AND ($4::specialty IS NULL OR s.specialty = $4)
+  AND ($4::varchar IS NULL OR s.specialty::text = ANY(string_to_array($4::varchar, ',')))
 GROUP BY s.specialty
 ORDER BY avg_ticket DESC
 `
 
 type GetAvgTicketBySpecialtyParams struct {
-	DateFrom  pgtype.Date   `json:"date_from"`
-	DateTo    pgtype.Date   `json:"date_to"`
-	ClinicID  pgtype.Text   `json:"clinic_id"`
-	Specialty NullSpecialty `json:"specialty"`
+	DateFrom  pgtype.Date `json:"date_from"`
+	DateTo    pgtype.Date `json:"date_to"`
+	ClinicID  pgtype.Text `json:"clinic_id"`
+	Specialty pgtype.Text `json:"specialty"`
 }
 
 type GetAvgTicketBySpecialtyRow struct {
