@@ -1,5 +1,5 @@
 // M8: Tabla heatmap de cohortes de retención
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import { useMetric } from '../../hooks/useMetric'
 import { fetchRetentionCohorts } from '../../services/api'
 import type { RetentionCohortsResponse } from '../../types/api'
@@ -9,7 +9,7 @@ interface Props {
   mini?: boolean
 }
 
-export default function RetentionCohortsChart({ mini }: Props) {
+function RetentionCohortsChart({ mini }: Props) {
   const { data, loading, error } = useMetric<RetentionCohortsResponse>(
     fetchRetentionCohorts,
     { includeFilters: ['clinic_id', 'dates'] }
@@ -110,3 +110,5 @@ export default function RetentionCohortsChart({ mini }: Props) {
     </ChartCard>
   )
 }
+
+export default memo(RetentionCohortsChart)

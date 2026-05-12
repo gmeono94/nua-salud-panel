@@ -1,4 +1,5 @@
 // M3 - Pacientes: donut (nuevas vs recurrentes) + área de evolución mensual
+import { memo } from 'react'
 import {
   PieChart,
   Pie,
@@ -40,7 +41,7 @@ interface Props {
   mini?: boolean
 }
 
-export default function PatientsChart({ mini }: Props) {
+function PatientsChart({ mini }: Props) {
   const { data, loading, error } = useMetric<PatientsResponse>(fetchPatients, {
     includeFilters: ['clinic_id', 'dates'],
   })
@@ -181,3 +182,5 @@ export default function PatientsChart({ mini }: Props) {
     </ChartCard>
   )
 }
+
+export default memo(PatientsChart)

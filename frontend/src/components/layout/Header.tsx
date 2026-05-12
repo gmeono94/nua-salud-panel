@@ -1,13 +1,8 @@
 // Header del dashboard con logo, título, menú de usuario y bitácora
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import { ROLE_LABELS } from '../../constants/labels'
 import AuditLogPanel from './AuditLogPanel'
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Administradora',
-  strategy: 'Estrategia',
-  clinic_director: 'Directora de Clínica',
-}
 
 export default function Header() {
   const { user, logout } = useAuth()
