@@ -35,7 +35,7 @@ func (ctrl *Controller) Appointments(c *gin.Context) {
 		DateTo:    dr.To,
 		ClinicID:  filters.OptionalText(c, "clinic_id"),
 		DoctorID:  filters.OptionalText(c, "doctor_id"),
-		Specialty: filters.OptionalSpecialty(c, "specialty"),
+		Specialty: filters.OptionalText(c, "specialty"),
 	}
 
 	data, err := ctrl.q.GetAppointmentsByPeriod(c.Request.Context(), params)
@@ -77,7 +77,7 @@ func (ctrl *Controller) Occupancy(c *gin.Context) {
 		params := operationalsqlc.GetOccupancyByDoctorParams{
 			TotalDays: dr.Days,
 			ClinicID:  filters.OptionalText(c, "clinic_id"),
-			Specialty: filters.OptionalSpecialty(c, "specialty"),
+			Specialty: filters.OptionalText(c, "specialty"),
 			DateFrom:  dr.From,
 			DateTo:    dr.To,
 		}
@@ -151,7 +151,7 @@ func (ctrl *Controller) Revenue(c *gin.Context) {
 	}
 
 	clinicID := filters.OptionalText(c, "clinic_id")
-	specialty := filters.OptionalSpecialty(c, "specialty")
+	specialty := filters.OptionalText(c, "specialty")
 
 	data, err := ctrl.q.GetRevenueByClinic(c.Request.Context(), operationalsqlc.GetRevenueByClinicParams{
 		DateFrom:  dr.From,
@@ -194,7 +194,7 @@ func (ctrl *Controller) TopDoctors(c *gin.Context) {
 		DateFrom:  dr.From,
 		DateTo:    dr.To,
 		ClinicID:  filters.OptionalText(c, "clinic_id"),
-		Specialty: filters.OptionalSpecialty(c, "specialty"),
+		Specialty: filters.OptionalText(c, "specialty"),
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando top doctoras"})
@@ -216,7 +216,7 @@ func (ctrl *Controller) CancellationRate(c *gin.Context) {
 	groupBy := c.DefaultQuery("group_by", "month")
 	clinicID := filters.OptionalText(c, "clinic_id")
 	doctorID := filters.OptionalText(c, "doctor_id")
-	specialty := filters.OptionalSpecialty(c, "specialty")
+	specialty := filters.OptionalText(c, "specialty")
 
 	data, err := ctrl.q.GetCancellationRateByPeriod(c.Request.Context(), operationalsqlc.GetCancellationRateByPeriodParams{
 		GroupBy:   groupBy,
@@ -259,7 +259,7 @@ func (ctrl *Controller) AvgTicket(c *gin.Context) {
 	}
 
 	clinicID := filters.OptionalText(c, "clinic_id")
-	specialty := filters.OptionalSpecialty(c, "specialty")
+	specialty := filters.OptionalText(c, "specialty")
 
 	summary, err := ctrl.q.GetAvgTicket(c.Request.Context(), operationalsqlc.GetAvgTicketParams{
 		DateFrom:  dr.From,

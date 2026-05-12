@@ -30,18 +30,18 @@ WHERE a.date BETWEEN $2::date AND $3::date
   AND a.status != 'agendada'
   AND ($4::varchar IS NULL OR a.clinic_id = ANY(string_to_array($4::varchar, ',')))
   AND ($5::varchar IS NULL OR a.doctor_id = $5)
-  AND ($6::specialty IS NULL OR d.specialty = $6)
+  AND ($6::varchar IS NULL OR d.specialty::text = ANY(string_to_array($6::varchar, ',')))
 GROUP BY period
 ORDER BY period
 `
 
 type GetCancellationRateByPeriodParams struct {
-	GroupBy   string        `json:"group_by"`
-	DateFrom  pgtype.Date   `json:"date_from"`
-	DateTo    pgtype.Date   `json:"date_to"`
-	ClinicID  pgtype.Text   `json:"clinic_id"`
-	DoctorID  pgtype.Text   `json:"doctor_id"`
-	Specialty NullSpecialty `json:"specialty"`
+	GroupBy   string      `json:"group_by"`
+	DateFrom  pgtype.Date `json:"date_from"`
+	DateTo    pgtype.Date `json:"date_to"`
+	ClinicID  pgtype.Text `json:"clinic_id"`
+	DoctorID  pgtype.Text `json:"doctor_id"`
+	Specialty pgtype.Text `json:"specialty"`
 }
 
 type GetCancellationRateByPeriodRow struct {
@@ -99,15 +99,15 @@ WHERE a.date BETWEEN $1::date AND $2::date
   AND a.status != 'agendada'
   AND ($3::varchar IS NULL OR a.clinic_id = ANY(string_to_array($3::varchar, ',')))
   AND ($4::varchar IS NULL OR a.doctor_id = $4)
-  AND ($5::specialty IS NULL OR d.specialty = $5)
+  AND ($5::varchar IS NULL OR d.specialty::text = ANY(string_to_array($5::varchar, ',')))
 `
 
 type GetCancellationRateSummaryParams struct {
-	DateFrom  pgtype.Date   `json:"date_from"`
-	DateTo    pgtype.Date   `json:"date_to"`
-	ClinicID  pgtype.Text   `json:"clinic_id"`
-	DoctorID  pgtype.Text   `json:"doctor_id"`
-	Specialty NullSpecialty `json:"specialty"`
+	DateFrom  pgtype.Date `json:"date_from"`
+	DateTo    pgtype.Date `json:"date_to"`
+	ClinicID  pgtype.Text `json:"clinic_id"`
+	DoctorID  pgtype.Text `json:"doctor_id"`
+	Specialty pgtype.Text `json:"specialty"`
 }
 
 type GetCancellationRateSummaryRow struct {

@@ -68,7 +68,10 @@ export function useMetric<T>(
     // includeFilters se pasa como prop estática, no cambia en la práctica
   ])
 
+  const ready = Boolean(filters.date_from && filters.date_to)
+
   const fetchData = useCallback(async () => {
+    if (!ready) return
     setLoading(true)
     setError(null)
     try {
@@ -80,7 +83,7 @@ export function useMetric<T>(
     } finally {
       setLoading(false)
     }
-  }, [queryKey])
+  }, [queryKey, ready])
 
   useEffect(() => {
     fetchData()
