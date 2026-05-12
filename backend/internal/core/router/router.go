@@ -18,6 +18,7 @@ import (
 func Setup() *gin.Engine {
 	r := gin.Default()
 
+	r.Use(middlewares.RequestIDMiddleware())
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:5175"},
 		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
@@ -43,6 +44,7 @@ func Setup() *gin.Engine {
 	protected := v1.Group("")
 	protected.Use(middlewares.APIKeyMiddleware(dashboardQueries))
 	protected.Use(middlewares.AuthMiddleware())
+	protected.Use(middlewares.ClinicAccessMiddleware())
 	protected.Use(middlewares.AuditMiddleware(dashboardQueries))
 	metrics.Setup(protected, operationalQueries)
 

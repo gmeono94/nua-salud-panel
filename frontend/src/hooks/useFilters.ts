@@ -145,7 +145,16 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       key: K,
       value: GlobalFilterValues[K]
     ) => {
-      setFilters((prev) => ({ ...prev, [key]: value }))
+      setFilters((prev) => {
+        const next = { ...prev, [key]: value }
+        if (key === 'date_from' && next.date_to && next.date_from > next.date_to) {
+          next.date_to = next.date_from
+        }
+        if (key === 'date_to' && next.date_from && next.date_to < next.date_from) {
+          next.date_from = next.date_to
+        }
+        return next
+      })
       if (key === 'date_from' || key === 'date_to') {
         setActivePreset('custom')
       }
