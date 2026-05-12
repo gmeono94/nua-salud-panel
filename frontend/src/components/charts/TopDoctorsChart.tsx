@@ -1,15 +1,10 @@
 // M5 - Top Doctoras: leaderboard con tarjetas, badges y barras de progreso
+import { memo } from 'react'
 import { fetchTopDoctors } from '../../services/api'
 import type { TopDoctorsResponse } from '../../types/api'
 import { useMetric } from '../../hooks/useMetric'
+import { SPECIALTY_CHIPS } from '../../constants/colors'
 import ChartCard from '../ui/ChartCard'
-
-// Colores de especialidad
-const SPECIALTY_COLORS: Record<string, { bg: string; text: string }> = {
-  ginecologia: { bg: 'bg-violet-100', text: 'text-violet-700' },
-  obstetricia: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
-  menopausia: { bg: 'bg-amber-100', text: 'text-amber-700' },
-}
 
 // Estilos para las medallas del top 3
 const MEDAL_STYLES: Record<number, { bg: string; text: string; ring: string }> = {
@@ -25,7 +20,7 @@ interface Props {
   mini?: boolean
 }
 
-export default function TopDoctorsChart({ mini }: Props) {
+function TopDoctorsChart({ mini }: Props) {
   const { data, loading, error } = useMetric<TopDoctorsResponse>(
     fetchTopDoctors,
     { includeFilters: ['clinic_id', 'specialty', 'dates'] }
@@ -41,7 +36,7 @@ export default function TopDoctorsChart({ mini }: Props) {
         <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
           {doctors.map((doc, index) => {
             const medal = MEDAL_STYLES[index]
-            const specColors = SPECIALTY_COLORS[doc.specialty] || {
+            const specColors = SPECIALTY_CHIPS[doc.specialty] || {
               bg: 'bg-gray-100',
               text: 'text-gray-700',
             }
@@ -108,3 +103,5 @@ export default function TopDoctorsChart({ mini }: Props) {
     </ChartCard>
   )
 }
+
+export default memo(TopDoctorsChart)

@@ -1,37 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { fetchAuditLogs } from '../../services/auditApi'
 import type { AuditEntry } from '../../services/auditApi'
-
-const ACTION_LABELS: Record<string, string> = {
-  login: 'Inicio de sesión',
-  logout: 'Cierre de sesión',
-  login_failed: 'Login fallido',
-  view_metric: 'Vista de reporte',
-  export_data: 'Exportación',
-  create_user: 'Crear usuario',
-  update_user: 'Editar usuario',
-  delete_user: 'Eliminar usuario',
-}
-
-const ACTION_COLORS: Record<string, string> = {
-  login: 'bg-emerald-50 text-emerald-700',
-  logout: 'bg-gray-50 text-gray-600',
-  login_failed: 'bg-rose-50 text-rose-700',
-  view_metric: 'bg-violet-50 text-violet-700',
-  export_data: 'bg-amber-50 text-amber-700',
-}
-
-const RESOURCE_LABELS: Record<string, string> = {
-  appointments: 'Citas',
-  occupancy: 'Ocupación',
-  patients: 'Pacientes',
-  revenue: 'Ingresos',
-  'top-doctors': 'Top Doctoras',
-  'cancellation-rate': 'Cancelación',
-  'avg-ticket': 'Ticket Promedio',
-  'retention-cohorts': 'Retención',
-  auth: 'Autenticación',
-}
+import { ACTION_LABELS, ACTION_COLORS, RESOURCE_LABELS } from '../../constants/labels'
 
 function formatDate(iso: string) {
   const d = new Date(iso)

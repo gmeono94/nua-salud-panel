@@ -1,4 +1,5 @@
 // M1 - Gráfica de citas: KPIs + área apilada con gradientes
+import { memo } from 'react'
 import {
   AreaChart,
   Area,
@@ -69,7 +70,7 @@ interface Props {
   mini?: boolean
 }
 
-export default function AppointmentsChart({ mini }: Props) {
+function AppointmentsChart({ mini }: Props) {
   const { filters, setFilter } = useFilters()
   const { data, loading, error } = useMetric<AppointmentsResponse>(
     fetchAppointments,
@@ -192,3 +193,5 @@ export default function AppointmentsChart({ mini }: Props) {
     </div>
   )
 }
+
+export default memo(AppointmentsChart)

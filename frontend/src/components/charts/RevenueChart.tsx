@@ -1,5 +1,5 @@
 // M4 - Ingresos: KPI total + barras horizontales apiladas por especialidad
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import {
   BarChart,
   Bar,
@@ -13,15 +13,9 @@ import {
 import { fetchRevenue } from '../../services/api'
 import type { RevenueResponse } from '../../types/api'
 import { useMetric } from '../../hooks/useMetric'
+import { SPECIALTY_HEX } from '../../constants/colors'
 import ChartCard from '../ui/ChartCard'
 import KpiCard from '../ui/KpiCard'
-
-// Colores por especialidad
-const SPECIALTY_COLORS: Record<string, string> = {
-  ginecologia: '#7c3aed',
-  obstetricia: '#4f46e5',
-  menopausia: '#f59e0b',
-}
 
 // Icono de moneda
 function DollarIcon() {
@@ -63,7 +57,7 @@ interface Props {
   mini?: boolean
 }
 
-export default function RevenueChart({ mini }: Props) {
+function RevenueChart({ mini }: Props) {
   const { data, loading, error } = useMetric<RevenueResponse>(fetchRevenue, {
     includeFilters: ['clinic_id', 'specialty', 'dates'],
   })
@@ -158,7 +152,7 @@ export default function RevenueChart({ mini }: Props) {
                   dataKey={sp}
                   name={sp}
                   stackId="revenue"
-                  fill={SPECIALTY_COLORS[sp] || '#94a3b8'}
+                  fill={SPECIALTY_HEX[sp] || '#94a3b8'}
                   radius={specialties.indexOf(sp) === specialties.length - 1 ? [0, 6, 6, 0] : [0, 0, 0, 0]}
                   barSize={24}
                 />
@@ -174,3 +168,5 @@ export default function RevenueChart({ mini }: Props) {
     </div>
   )
 }
+
+export default memo(RevenueChart)

@@ -2,6 +2,7 @@
 package metrics
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,11 @@ type Controller struct {
 
 func NewController(q *operationalsqlc.Queries) *Controller {
 	return &Controller{q: q}
+}
+
+func internalError(c *gin.Context, msg string, err error) {
+	log.Printf("%s: %v", msg, err)
+	c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 }
 
 // Appointments — M1: Citas por período con desglose por estado.
@@ -40,7 +46,7 @@ func (ctrl *Controller) Appointments(c *gin.Context) {
 
 	data, err := ctrl.q.GetAppointmentsByPeriod(c.Request.Context(), params)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando citas"})
+		internalError(c, "Error consultando citas", err)
 		return
 	}
 
@@ -52,7 +58,7 @@ func (ctrl *Controller) Appointments(c *gin.Context) {
 		Specialty: params.Specialty,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando resumen"})
+		internalError(c, "Error consultando resumen", err)
 		return
 	}
 
@@ -83,7 +89,7 @@ func (ctrl *Controller) Occupancy(c *gin.Context) {
 		}
 		data, err := ctrl.q.GetOccupancyByDoctor(c.Request.Context(), params)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando ocupación por doctora"})
+			internalError(c, "Error consultando ocupación por doctora", err)
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"view": "doctor", "data": data})
@@ -98,7 +104,7 @@ func (ctrl *Controller) Occupancy(c *gin.Context) {
 	}
 	data, err := ctrl.q.GetOccupancyByClinic(c.Request.Context(), params)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando ocupación"})
+		internalError(c, "Error consultando ocupación", err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"view": "clinic", "data": data})
@@ -121,7 +127,7 @@ func (ctrl *Controller) Patients(c *gin.Context) {
 		ClinicID: clinicID,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando pacientes"})
+		internalError(c, "Error consultando pacientes", err)
 		return
 	}
 
@@ -131,7 +137,7 @@ func (ctrl *Controller) Patients(c *gin.Context) {
 		ClinicID: clinicID,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando desglose mensual"})
+		internalError(c, "Error consultando desglose mensual", err)
 		return
 	}
 
@@ -160,7 +166,7 @@ func (ctrl *Controller) Revenue(c *gin.Context) {
 		Specialty: specialty,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando ingresos"})
+		internalError(c, "Error consultando ingresos", err)
 		return
 	}
 
@@ -171,7 +177,7 @@ func (ctrl *Controller) Revenue(c *gin.Context) {
 		Specialty: specialty,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando total de ingresos"})
+		internalError(c, "Error consultando total de ingresos", err)
 		return
 	}
 
@@ -197,7 +203,7 @@ func (ctrl *Controller) TopDoctors(c *gin.Context) {
 		Specialty: filters.OptionalText(c, "specialty"),
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando top doctoras"})
+		internalError(c, "Error consultando top doctoras", err)
 		return
 	}
 
@@ -227,7 +233,7 @@ func (ctrl *Controller) CancellationRate(c *gin.Context) {
 		Specialty: specialty,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando tasa de cancelación"})
+		internalError(c, "Error consultando tasa de cancelación", err)
 		return
 	}
 
@@ -239,7 +245,7 @@ func (ctrl *Controller) CancellationRate(c *gin.Context) {
 		Specialty: specialty,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando resumen de cancelación"})
+		internalError(c, "Error consultando resumen de cancelación", err)
 		return
 	}
 
@@ -268,7 +274,7 @@ func (ctrl *Controller) AvgTicket(c *gin.Context) {
 		Specialty: specialty,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando ticket promedio"})
+		internalError(c, "Error consultando ticket promedio", err)
 		return
 	}
 
@@ -279,7 +285,7 @@ func (ctrl *Controller) AvgTicket(c *gin.Context) {
 		Specialty: specialty,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando ticket por clínica"})
+		internalError(c, "Error consultando ticket por clínica", err)
 		return
 	}
 
@@ -290,7 +296,7 @@ func (ctrl *Controller) AvgTicket(c *gin.Context) {
 		Specialty: specialty,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando ticket por especialidad"})
+		internalError(c, "Error consultando ticket por especialidad", err)
 		return
 	}
 
@@ -318,7 +324,7 @@ func (ctrl *Controller) RetentionCohorts(c *gin.Context) {
 		ClinicID: clinicID,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando cohortes de retención"})
+		internalError(c, "Error consultando cohortes de retención", err)
 		return
 	}
 
@@ -328,7 +334,7 @@ func (ctrl *Controller) RetentionCohorts(c *gin.Context) {
 		ClinicID: clinicID,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error consultando tamaño de cohortes"})
+		internalError(c, "Error consultando tamaño de cohortes", err)
 		return
 	}
 
@@ -343,7 +349,7 @@ func (ctrl *Controller) RetentionCohorts(c *gin.Context) {
 func (ctrl *Controller) DateRange(c *gin.Context) {
 	row, err := ctrl.q.GetDateRange(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error obteniendo rango de fechas"})
+		internalError(c, "Error obteniendo rango de fechas", err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -357,7 +363,7 @@ func (ctrl *Controller) DateRange(c *gin.Context) {
 func (ctrl *Controller) ListClinics(c *gin.Context) {
 	data, err := ctrl.q.ListClinics(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error listando clínicas"})
+		internalError(c, "Error listando clínicas", err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": data})
@@ -368,7 +374,7 @@ func (ctrl *Controller) ListClinics(c *gin.Context) {
 func (ctrl *Controller) ListDoctors(c *gin.Context) {
 	data, err := ctrl.q.ListDoctors(c.Request.Context(), filters.OptionalText(c, "clinic_id"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error listando doctoras"})
+		internalError(c, "Error listando doctoras", err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": data})
@@ -379,7 +385,7 @@ func (ctrl *Controller) ListDoctors(c *gin.Context) {
 func (ctrl *Controller) ListSpecialties(c *gin.Context) {
 	data, err := ctrl.q.ListSpecialties(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error listando especialidades"})
+		internalError(c, "Error listando especialidades", err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": data})

@@ -103,8 +103,9 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*dtos.T
 		return nil, fmt.Errorf("error obteniendo clínicas: %w", err)
 	}
 
-	// Revocar token anterior y generar uno nuevo (rotación de refresh tokens)
-	_ = s.queries.RevokeRefreshToken(ctx, tokenHash)
+	if err := s.queries.RevokeRefreshToken(ctx, tokenHash); err != nil {
+		return nil, fmt.Errorf("error revocando refresh token anterior: %w", err)
+	}
 
 	accessToken, err := GenerateAccessToken(
 		user.ID.String(),

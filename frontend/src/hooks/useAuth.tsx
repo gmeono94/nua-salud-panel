@@ -42,7 +42,9 @@ function loadFromStorage(): AuthState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) return JSON.parse(raw)
-  } catch { /* ignorar */ }
+  } catch {
+    localStorage.removeItem(STORAGE_KEY)
+  }
   return { accessToken: null, refreshToken: null, user: null }
 }
 
@@ -93,8 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // No se pudo validar ni refrescar
         setState({ accessToken: null, refreshToken: null, user: null })
         clearStorage()
-      } catch {
-        // Error de red — mantener sesión (puede ser problema temporal)
+      } catch (err) {
+        console.error('Error validando sesión:', err)
       }
       setLoading(false)
     }
@@ -140,7 +142,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
           body: JSON.stringify({ refresh_token: state.refreshToken }),
         })
-      } catch { /* ignorar errores al cerrar sesión */ }
+      } catch (err) {
+        console.error('Error cerrando sesión:', err)
+      }
     }
 
     setState({ accessToken: null, refreshToken: null, user: null })

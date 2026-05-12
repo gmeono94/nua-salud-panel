@@ -1,5 +1,5 @@
 // M2 - Ocupación: vista dual (barras por clínica / anillos por doctora)
-import { useState, useMemo, useCallback } from 'react'
+import { memo, useState, useMemo, useCallback } from 'react'
 import {
   BarChart,
   Bar,
@@ -14,16 +14,10 @@ import {
 import { fetchOccupancy } from '../../services/api'
 import type { OccupancyResponse, OccupancyClinic, OccupancyDoctor } from '../../types/api'
 import { useMetric } from '../../hooks/useMetric'
+import { SPECIALTY_CHIPS } from '../../constants/colors'
 import ChartCard from '../ui/ChartCard'
 
 type OccupancyView = 'clinic' | 'doctor'
-
-// Colores de especialidad para los chips
-const SPECIALTY_COLORS: Record<string, { bg: string; text: string }> = {
-  ginecologia: { bg: 'bg-violet-100', text: 'text-violet-700' },
-  obstetricia: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
-  menopausia: { bg: 'bg-amber-100', text: 'text-amber-700' },
-}
 
 // Indicador circular de progreso (anillo SVG)
 function RingProgress({ percentage, size = 80 }: { percentage: number; size?: number }) {
@@ -82,7 +76,7 @@ interface Props {
   mini?: boolean
 }
 
-export default function OccupancyChart({ mini }: Props) {
+function OccupancyChart({ mini }: Props) {
   const [view, setView] = useState<OccupancyView>('clinic')
 
   // Fetcher que incluye la vista seleccionada
@@ -202,7 +196,7 @@ export default function OccupancyChart({ mini }: Props) {
       {view === 'doctor' && doctorData.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-1">
           {doctorData.map((doc) => {
-            const colors = SPECIALTY_COLORS[doc.specialty] || { bg: 'bg-gray-100', text: 'text-gray-700' }
+            const colors = SPECIALTY_CHIPS[doc.specialty] || { bg: 'bg-gray-100', text: 'text-gray-700' }
             return (
               <div
                 key={doc.doctor_id}
@@ -244,3 +238,5 @@ export default function OccupancyChart({ mini }: Props) {
     </ChartCard>
   )
 }
+
+export default memo(OccupancyChart)
