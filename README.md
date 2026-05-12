@@ -1108,7 +1108,7 @@ gantt
     section 15-20 clinicas
     Mongo sharding        :2027-01-01, 45d
     Redis cache           :2027-01-01, 30d
-    Aurora read replica   :2027-02-01, 30d
+    Read replica PG       :2027-02-01, 30d
     2FA admin             :2027-02-01, 30d
 
     section 25-30 clinicas
