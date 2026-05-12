@@ -647,9 +647,40 @@ docker compose down -v       # Detiene contenedores y elimina volúmenes (reset 
 
 Nua opera hoy con 5 clínicas, 6 desarrolladores Node.js, y un stack centrado en MongoDB + microservicios. El plan de expansión a 30 clínicas impacta toda la plataforma, no solo el panel operativo. Esta sección analiza los riesgos y mitigaciones por capa, desde la infraestructura compartida hasta cada producto.
 
-### Arquitectura actual de Nua (5 clinicas)
+### Arquitectura actual de Nua (sin este proyecto)
 
-Hoy todo vive en MongoDB — expedientes, citas, pagos, doctoras, clínicas. Funciona a 5 clínicas, pero las queries relacionales (`$lookup`) ya muestran degradación. El panel operativo es el primer servicio que rompe con ese patrón usando PostgreSQL.
+Todo vive en MongoDB — expedientes, citas, pagos, doctoras, clínicas. Funciona a 5 clínicas, pero las queries relacionales (`$lookup`) ya muestran degradación.
+
+```mermaid
+graph TB
+    subgraph "Productos"
+        V[Vitalia — EHR<br/>Node.js]
+        PP[Portal Pacientes<br/>React]
+        MA[App Móvil<br/>React Native]
+    end
+
+    subgraph "Datos — todo en MongoDB"
+        MDB[(MongoDB Atlas<br/>Expedientes, citas, pagos,<br/>doctoras, clínicas — todo)]
+    end
+
+    subgraph "Infra AWS"
+        ECS[ECS Fargate<br/>Node.js]
+        S3[S3 + CloudFront]
+    end
+
+    V --> ECS
+    PP --> S3
+    MA --> ECS
+
+    ECS -->|Todo| MDB
+    S3 --> ECS
+
+    style MDB fill:#16a34a,stroke:#15803d,color:#fff
+```
+
+### Arquitectura con el panel operativo (este proyecto)
+
+El panel es el primer servicio que introduce PostgreSQL a la plataforma. Convive con el stack actual sin modificarlo.
 
 ```mermaid
 graph TB
@@ -660,9 +691,9 @@ graph TB
         DP[Panel Operativo<br/>Go — nuevo]
     end
 
-    subgraph "Datos — todo en MongoDB excepto el panel"
-        MDB[(MongoDB Atlas<br/>TODO: expedientes, citas,<br/>pagos, doctoras, clínicas)]
-        PG[(PostgreSQL<br/>Solo panel operativo<br/>+ auth del dashboard)]
+    subgraph "Datos"
+        MDB[(MongoDB Atlas<br/>Todo: expedientes, citas,<br/>pagos, doctoras, clínicas)]
+        PG[(PostgreSQL — nuevo<br/>Réplica de datos operativos<br/>+ auth del dashboard)]
     end
 
     subgraph "Infra AWS"
@@ -686,7 +717,7 @@ graph TB
     style DP fill:#f59e0b,stroke:#d97706,color:#000
 ```
 
-### Arquitectura proyectada (30 clinicas) — multi-model database
+### Arquitectura proyectada a 30 clinicas — multi-model database
 
 A 5 clínicas, MongoDB como base de datos única para el EHR funciona. A 30 clínicas, los `$lookup` encadenados entre citas, pagos, pacientes y doctoras degradan el rendimiento y el aggregation pipeline se vuelve inmantenible. La propuesta no es reemplazar MongoDB — es usar cada motor donde es fuerte:
 
@@ -854,22 +885,49 @@ El equipo tiene 6 devs Node.js y un conjunto de microservicios en ECS Fargate. L
 | **Auth / Usuarios** | **Se queda en Node.js + PostgreSQL** | Ya es relacional (users, roles, sessions). Si hoy está en MongoDB, migrar a PostgreSQL es directo y gana integridad + JOINs con user_clinics. |
 | **Panel operativo** | **Ya está en Go + PostgreSQL** | Servicio aislado, read-only, optimizado para analytics. No requiere que el equipo de Node.js lo mantenga. |
 
-#### ¿Por qué no migrar todo a Go?
+#### ¿Por qué Node.js se queda y no se migra todo a Go?
 
-Sería un error. El equipo tiene 6 devs con experiencia en Node.js. Reescribir servicios en Go implica:
-- Meses de desarrollo sin valor de negocio nuevo
-- Curva de aprendizaje para todo el equipo
-- Riesgo de bugs en la reescritura
+Esta es la pregunta natural: si Go es mejor para el panel, ¿por qué no reescribir todo en Go? La respuesta es que **el cuello de botella nunca fue el runtime — era la base de datos.**
 
-**La base de datos era el problema, no el runtime.** Node.js en ECS Fargate con auto-scaling maneja 300 req/s sin problema. Lo que no escala son los `$lookup` de MongoDB para datos relacionales.
+**Diagnóstico real del problema de rendimiento:**
+
+```mermaid
+graph LR
+    subgraph "Antes — lento"
+        A[Node.js] -->|$lookup × 3| B[(MongoDB<br/>citas+pagos+doctoras)]
+    end
+
+    subgraph "Después — rápido"
+        C[Node.js] -->|JOIN × 3| D[(PostgreSQL<br/>citas+pagos+doctoras)]
+    end
+
+    style B fill:#dc2626,stroke:#b91c1c,color:#fff
+    style D fill:#16a34a,stroke:#15803d,color:#fff
+```
+
+Node.js + MongoDB `$lookup` es lento. Node.js + PostgreSQL JOIN es rápido. **Cambiar de Node.js a Go sin cambiar la base de datos no resuelve nada.** Cambiar la base de datos sin tocar el runtime resuelve el 90% del problema.
+
+**Costo de reescribir en Go vs. migrar la base de datos:**
+
+| | Migrar DB (lo propuesto) | Reescribir en Go |
+|--|--------------------------|-----------------|
+| **Tiempo** | ~3 meses por servicio | ~6-9 meses por servicio |
+| **Riesgo** | Bajo — misma lógica, distinto storage | Alto — reescritura completa, bugs nuevos |
+| **Equipo** | Los 6 devs actuales pueden hacerlo | Requiere capacitar a 6 devs en Go o contratar |
+| **Valor de negocio** | Inmediato — las queries ya son rápidas | Cero hasta que la reescritura esté completa |
+| **Mejora de performance** | 85ms → 12ms (migrar `$lookup` → JOIN) | 12ms → 8ms (marginal, no justifica el costo) |
 
 ```mermaid
 xychart-beta horizontal
-    title "Respuesta p99 por servicio a 30 clinicas (ms)"
-    x-axis ["EHR (Node+Mongo)", "Citas (Node+PG)", "Pagos (Node+PG)", "Panel (Go+PG)"]
+    title "Respuesta p99 a 30 clinicas (ms)"
+    x-axis ["Node+Mongo", "Node+PG", "Go+PG"]
     y-axis "ms" 0 --> 120
-    bar [45, 25, 20, 12]
+    bar [85, 25, 12]
 ```
+
+> **La ganancia del 90% viene de MongoDB→PostgreSQL (85ms→25ms).** La ganancia adicional de Node.js→Go (25ms→12ms) es real pero marginal — no justifica reescribir 5 servicios, capacitar a 6 desarrolladores y pausar features durante meses. Go se usa donde sí hace diferencia: el panel operativo (servicio nuevo, aislado, read-only en Lambda donde cold starts importan).
+
+**¿Cuándo sí tendría sentido migrar a Go?** Si en el futuro un servicio específico necesita manejar >1000 req/s sostenidos o tiene requisitos de latencia sub-10ms, ese servicio individual se evalúa para migración. Pero es una decisión servicio-por-servicio, no una reescritura masiva.
 
 #### Infraestructura de compute
 
