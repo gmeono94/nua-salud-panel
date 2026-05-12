@@ -5,6 +5,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
+	"github.com/gmeono94/nua-salud-panel/backend/internal/api/v1/audit"
 	"github.com/gmeono94/nua-salud-panel/backend/internal/api/v1/auth"
 	"github.com/gmeono94/nua-salud-panel/backend/internal/api/v1/metrics"
 	"github.com/gmeono94/nua-salud-panel/backend/internal/core/db"
@@ -42,7 +43,12 @@ func Setup() *gin.Engine {
 	protected := v1.Group("")
 	protected.Use(middlewares.APIKeyMiddleware(dashboardQueries))
 	protected.Use(middlewares.AuthMiddleware())
+	protected.Use(middlewares.AuditMiddleware(dashboardQueries))
 	metrics.Setup(protected, operationalQueries)
+
+	// Bitácora — requiere API key + JWT + rol admin
+	auditCtrl := audit.NewController(dashboardQueries)
+	protected.GET("/audit-logs", middlewares.RoleMiddleware("admin"), auditCtrl.List)
 
 	return r
 }

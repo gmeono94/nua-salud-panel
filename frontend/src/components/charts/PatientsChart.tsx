@@ -53,26 +53,37 @@ export default function PatientsChart({ mini }: Props) {
       ]
     : []
 
+  const donutSize = mini ? 160 : 200
+  const innerR = mini ? 50 : 62
+  const outerR = mini ? 68 : 85
+  const center = donutSize / 2
+
   return (
-    <ChartCard title="Pacientes" delay={300} loading={loading} error={error}>
+    <ChartCard
+      title="Pacientes"
+      subtitle={mini && data?.summary ? data.summary.total_patients.toLocaleString('es-MX') + ' total' : undefined}
+      compact={mini}
+      delay={300}
+      loading={loading}
+      error={error}
+    >
       {!data?.summary || data.summary.total_patients === 0 ? (
         !loading && (
-          <div className="flex items-center justify-center py-16 text-sm text-gray-400">
+          <div className={`flex items-center justify-center text-sm text-gray-400 ${mini ? 'py-8' : 'py-16'}`}>
             Sin datos de pacientes
           </div>
         )
       ) : (
-        <div className="space-y-6">
-          {/* Donut con total en el centro */}
+        <div className={mini ? 'space-y-2' : 'space-y-6'}>
           <div className="flex items-center justify-center">
             <div className="relative">
-              <PieChart width={200} height={200}>
+              <PieChart width={donutSize} height={donutSize}>
                 <Pie
                   data={donutData}
-                  cx={100}
-                  cy={100}
-                  innerRadius={62}
-                  outerRadius={85}
+                  cx={center}
+                  cy={center}
+                  innerRadius={innerR}
+                  outerRadius={outerR}
                   paddingAngle={3}
                   dataKey="value"
                   startAngle={90}
@@ -84,13 +95,14 @@ export default function PatientsChart({ mini }: Props) {
                   ))}
                 </Pie>
               </PieChart>
-              {/* Número total en el centro */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold text-gray-800">
-                  {data.summary.total_patients}
-                </span>
-                <span className="text-xs text-gray-400">Total</span>
-              </div>
+              {!mini && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-3xl font-bold text-gray-800">
+                    {data.summary.total_patients}
+                  </span>
+                  <span className="text-xs text-gray-400">Total</span>
+                </div>
+              )}
             </div>
           </div>
 

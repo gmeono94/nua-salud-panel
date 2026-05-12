@@ -35,9 +35,13 @@ export default function CancellationRateChart({ mini }: Props) {
     { value: 'month', label: 'Mes' },
   ]
 
+  const summaryValue = data?.summary?.total ? `${data.summary.lost_rate}%` : undefined
+
   return (
     <ChartCard
       title="Tasa de cancelación"
+      subtitle={mini ? summaryValue : undefined}
+      compact={mini}
       loading={loading}
       error={error}
       actions={
@@ -88,7 +92,7 @@ export default function CancellationRateChart({ mini }: Props) {
           Sin datos de cancelaciones
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={mini ? 160 : 280}>
+        <ResponsiveContainer width="100%" height={mini ? 150 : 280}>
           <LineChart data={data?.data ?? []}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis

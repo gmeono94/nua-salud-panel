@@ -99,8 +99,7 @@ export default function RevenueChart({ mini }: Props) {
   }, [data])
 
   return (
-    <div className="space-y-4">
-      {/* KPI de ingreso total */}
+    <div className={mini ? '' : 'space-y-4'}>
       {!mini && data && data.total_revenue > 0 && (
         <KpiCard
           label="Ingreso total"
@@ -111,10 +110,16 @@ export default function RevenueChart({ mini }: Props) {
         />
       )}
 
-      {/* Barras horizontales apiladas */}
-      <ChartCard title="Ingresos por clínica y especialidad" delay={300} loading={loading} error={error}>
+      <ChartCard
+        title={mini ? 'Ingresos' : 'Ingresos por clínica y especialidad'}
+        subtitle={mini && data ? formatMXN(data.total_revenue) : undefined}
+        compact={mini}
+        delay={300}
+        loading={loading}
+        error={error}
+      >
         {chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={Math.max(200, chartData.length * 60)}>
+          <ResponsiveContainer width="100%" height={mini ? 150 : Math.max(200, chartData.length * 60)}>
             <BarChart
               data={chartData}
               layout="vertical"
@@ -127,23 +132,26 @@ export default function RevenueChart({ mini }: Props) {
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v: number) => formatMXN(v)}
+                hide={mini}
               />
               <YAxis
                 type="category"
                 dataKey="clinic_name"
-                tick={{ fontSize: 13, fill: '#374151' }}
+                tick={{ fontSize: mini ? 11 : 13, fill: '#374151' }}
                 axisLine={false}
                 tickLine={false}
-                width={100}
+                width={mini ? 70 : 100}
               />
-              <Tooltip content={<RevenueTooltip />} />
-              <Legend
-                verticalAlign="top"
-                height={36}
-                formatter={(value: string) => (
-                  <span className="text-xs text-gray-600 capitalize">{value}</span>
-                )}
-              />
+              {!mini && <Tooltip content={<RevenueTooltip />} />}
+              {!mini && (
+                <Legend
+                  verticalAlign="top"
+                  height={36}
+                  formatter={(value: string) => (
+                    <span className="text-xs text-gray-600 capitalize">{value}</span>
+                  )}
+                />
+              )}
               {specialties.map((sp) => (
                 <Bar
                   key={sp}
